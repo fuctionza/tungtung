@@ -43,7 +43,9 @@
             <!-- ULTRA-LARGE ROOM PIN DISPLAY -->
             <div class="px-6 py-2 rounded-2xl bg-slate-900/95 border-2 border-amber-400 text-center shadow-2xl min-w-[170px] animate-pop">
                 <div class="text-[10px] text-amber-300 uppercase font-bold tracking-widest mb-0.5">ROOM PIN</div>
-                <div id="room-pin-display" class="text-4xl font-extrabold font-fun text-amber-400 tracking-widest leading-none py-1">----</div>
+                <h1 id="game-pin" class="text-4xl font-extrabold font-fun text-amber-400 tracking-widest leading-none py-1">----</h1>
+                <span id="pin-display" class="hidden">----</span>
+                <div id="room-pin-display" class="hidden">----</div>
                 <div id="hostRoomPin" class="hidden">----</div>
             </div>
 
@@ -198,8 +200,20 @@
     <script src="/js/state.js"></script>
     <script src="/js/grammarEngine.js"></script>
     <script>
-        const socket = io();
+        const socket = io(window.location.origin);
         window.socket = socket;
+
+        function updatePinDisplay(pin) {
+            if (!pin) return;
+            ['game-pin', 'pin-display', 'room-pin-display', 'hostRoomPin'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.innerText = pin;
+            });
+            if (window.hostDashboard) {
+                window.hostDashboard.roomCode = pin;
+                window.hostDashboard.generateJoinQRCode(pin);
+            }
+        }
 
         socket.on('connect', () => {
             console.log('Host connected to server:', socket.id);
@@ -208,15 +222,12 @@
 
         socket.on('room_created', (data) => {
             console.log('Room created with PIN:', data.pin);
-            const pinEl1 = document.getElementById('room-pin-display');
-            if (pinEl1) pinEl1.innerText = data.pin;
-            const pinEl2 = document.getElementById('hostRoomPin');
-            if (pinEl2) pinEl2.innerText = data.pin;
+            updatePinDisplay(data.pin);
+        });
 
-            if (window.hostDashboard) {
-                window.hostDashboard.roomCode = data.pin;
-                window.hostDashboard.generateJoinQRCode(data.pin);
-            }
+        socket.on('show_pin', (data) => {
+            console.log('Server sent show_pin:', data.pin);
+            updatePinDisplay(data.pin);
         });
 
         socket.on('update_host_lobby', (players) => {

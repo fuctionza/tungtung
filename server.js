@@ -188,6 +188,7 @@ io.on('connection', (socket) => {
         rooms[pin] = {
             pin,
             code: pin,
+            hostId: socket.id,
             hostSocketId: socket.id,
             stage: 'LOBBY',
             createdAt: Date.now(),
@@ -204,10 +205,11 @@ io.on('connection', (socket) => {
         const sanitized = sanitizeRoom(pin);
         
         socket.emit('room_created', { pin, room: sanitized });
-        io.in(pin).emit('update_host_lobby', Object.values(rooms[pin].players));
-        io.in(pin).emit('player_list_updated', { pin, players: [], totalPlayers: 0 });
-        io.in(pin).emit('room_state_updated', sanitized);
-        io.in(pin).emit('host_dashboard_update', sanitized);
+        socket.emit('show_pin', { pin });
+        io.to(pin).emit('update_host_lobby', Object.values(rooms[pin].players));
+        io.to(pin).emit('player_list_updated', { pin, players: [], totalPlayers: 0 });
+        io.to(pin).emit('room_state_updated', sanitized);
+        io.to(pin).emit('host_dashboard_update', sanitized);
 
         if (typeof callback === 'function') {
             callback({ success: true, pin, roomCode: pin, room: sanitized });

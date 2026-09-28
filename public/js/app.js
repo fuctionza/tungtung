@@ -77,7 +77,8 @@ class TungTungApp {
 
     initSocket() {
         if (typeof io !== 'undefined') {
-            this.socket = io();
+            this.socket = window.socket || io(window.location.origin);
+            window.socket = this.socket;
 
             this.socket.on('connect', () => {
                 console.log('[Player Socket] Connected to TungTung Server (ID:', this.socket.id, ')');

@@ -91,7 +91,7 @@ class HostDashboard {
 
     initSocket() {
         if (typeof io !== 'undefined' || window.socket) {
-            this.socket = window.socket || io();
+            this.socket = window.socket || io(window.location.origin);
             window.socket = this.socket;
 
             if (this.socket.connected) {
