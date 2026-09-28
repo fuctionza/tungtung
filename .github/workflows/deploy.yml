@@ -61,11 +61,13 @@ jobs:
 
     steps:
       - name: Trigger Render Deploy Hook
-        if: ${{ secrets.RENDER_DEPLOY_HOOK_URL != '' }}
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        if: env.RENDER_DEPLOY_HOOK_URL != ''
         run: |
           echo "🚀 Triggering Render deploy for ${{ env.PROJECT_NAME }}..."
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-            -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}")
+            -X POST "$RENDER_DEPLOY_HOOK_URL")
           echo "Render deploy hook response: HTTP $STATUS"
           if [ "$STATUS" -ge 200 ] && [ "$STATUS" -lt 300 ]; then
             echo "✅ Render deploy triggered successfully!"
