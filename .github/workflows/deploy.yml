@@ -1,0 +1,87 @@
+name: TungTung Restaurant — CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+env:
+  PROJECT_NAME: "TungTung Restaurant"
+  OWNER_EMAIL:  "nananashop19911@gmail.com"
+
+jobs:
+  # ─────────────────────────────────────────
+  # 1. Build & Validate
+  # ─────────────────────────────────────────
+  build-and-test:
+    name: Build & Validate
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Run Tests
+        run: npm test
+
+      - name: Validate server.js (syntax check)
+        run: node --check server.js
+
+      - name: Validate public HTML files exist
+        run: |
+          test -f public/index.html  && echo "✅ index.html OK"   || (echo "❌ index.html missing" && exit 1)
+          test -f public/host.html   && echo "✅ host.html OK"    || (echo "❌ host.html missing"  && exit 1)
+          test -f public/js/app.js   && echo "✅ app.js OK"       || (echo "❌ app.js missing"     && exit 1)
+          test -f public/js/host.js  && echo "✅ host.js OK"      || (echo "❌ host.js missing"    && exit 1)
+
+  # ─────────────────────────────────────────
+  # 2. Deploy to Render (production)
+  #    Trigger via Render Deploy Hook URL
+  #    Set RENDER_DEPLOY_HOOK_URL in GitHub Secrets:
+  #      Repository → Settings → Secrets → Actions
+  #      Name: RENDER_DEPLOY_HOOK_URL
+  #      Value: https://api.render.com/deploy/srv-XXXXXXX?key=YYYYYYY
+  #    Get this URL from: Render Dashboard → Service → Settings → Deploy Hook
+  # ─────────────────────────────────────────
+  deploy-render:
+    name: Deploy to Render
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') && github.event_name == 'push'
+
+    steps:
+      - name: Trigger Render Deploy Hook
+        if: ${{ secrets.RENDER_DEPLOY_HOOK_URL != '' }}
+        run: |
+          echo "🚀 Triggering Render deploy for ${{ env.PROJECT_NAME }}..."
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}")
+          echo "Render deploy hook response: HTTP $STATUS"
+          if [ "$STATUS" -ge 200 ] && [ "$STATUS" -lt 300 ]; then
+            echo "✅ Render deploy triggered successfully!"
+          else
+            echo "⚠️  Render deploy hook returned HTTP $STATUS (check your RENDER_DEPLOY_HOOK_URL secret)"
+          fi
+
+      - name: Deployment Summary
+        run: |
+          echo "=================================================="
+          echo "🎮 ${{ env.PROJECT_NAME }}"
+          echo "👤 Owner: ${{ env.OWNER_EMAIL }}"
+          echo "🌿 Branch: ${{ github.ref_name }}"
+          echo "📦 Commit: ${{ github.sha }}"
+          echo "=================================================="
+          echo "📺 Host Dashboard : https://<your-render-app>.onrender.com/host.html"
+          echo "🧑‍🍳 Player Screen : https://<your-render-app>.onrender.com/"
+          echo "🏥 Health Check  : https://<your-render-app>.onrender.com/api/health"
+          echo "=================================================="

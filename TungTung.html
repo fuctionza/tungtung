@@ -1,0 +1,919 @@
+'<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tung Tung Tung World Supermarket & Kitchen</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Mitr:wght@400;600&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Quicksand', 'Mitr', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            overflow: hidden;
+            background-color: #FFFDE7;
+        }
+
+        .font-game {
+            font-family: 'Fredoka One', 'Mitr', cursive;
+        }
+
+        /* Custom Scrollbars */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 248, 225, 0.6);
+            border-radius: 8px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #FFB300;
+            border-radius: 8px;
+        }
+
+        /* Keyframe Animations */
+        @keyframes float {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-6px) rotate(2deg); }
+        }
+
+        @keyframes pulse-bounce {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.04); }
+        }
+
+        @keyframes chop-action {
+            0% { transform: rotate(0deg); }
+            50% { transform: rotate(-25deg) translateY(6px); }
+            100% { transform: rotate(0deg); }
+        }
+
+        @keyframes pound-action {
+            0% { transform: translateY(0); }
+            50% { transform: translateY(-15px) rotate(-8deg); }
+            70% { transform: translateY(8px) rotate(4deg); }
+            100% { transform: translateY(0); }
+        }
+
+        @keyframes sizzle-pan {
+            0% { transform: translate(0, 0); }
+            25% { transform: translate(2px, -2px); }
+            50% { transform: translate(-2px, 1px); }
+            75% { transform: translate(1px, -1px); }
+            100% { transform: translate(0, 0); }
+        }
+
+        @keyframes eating-chew {
+            0%, 100% { transform: scale(1) rotate(0deg); }
+            25% { transform: scale(1.1) rotate(-4deg); }
+            75% { transform: scale(0.95) rotate(4deg); }
+        }
+
+        .animate-float { animation: float 2.5s ease-in-out infinite; }
+        .animate-pulse-bounce { animation: pulse-bounce 1.5s ease-in-out infinite; }
+        .animate-chop { animation: chop-action 0.2s ease-in-out; }
+        .animate-pound { animation: pound-action 0.25s ease-in-out; }
+        .animate-sizzle { animation: sizzle-pan 0.15s infinite; }
+        .animate-chew { animation: eating-chew 0.35s infinite; }
+
+        .bubble-btn {
+            transition: all 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .bubble-btn:active {
+            transform: scale(0.92);
+        }
+
+        /* Fixed Overlay Canvas for Fireworks */
+        #fxCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 100;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col justify-between text-slate-800 bg-gradient-to-br from-amber-100 via-yellow-50 to-orange-100 p-2 md:p-3">
+
+    <canvas id="fxCanvas"></canvas>
+
+    <!-- Top Navigation Header Bar -->
+    <header class="bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 text-amber-950 px-4 py-2 rounded-2xl shadow-md flex justify-between items-center z-30 shrink-0 border-2 border-amber-300">
+        <div class="flex items-center gap-2.5">
+            <div class="w-9 h-9 md:w-10 md:h-10 bg-white rounded-full flex items-center justify-center shadow-inner border-2 border-amber-300 text-xl animate-float">
+                🪵
+            </div>
+            <div>
+                <h1 class="font-game text-base md:text-xl tracking-wide leading-tight text-amber-950">Tung Tung Tung World</h1>
+                <p class="text-[10px] md:text-xs text-amber-800 font-bold">Supermarket & Cooking School</p>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+            <!-- Team Badge -->
+            <div id="headerTeamBadge" class="hidden bg-white/40 backdrop-blur-md px-2.5 py-1 rounded-xl border border-amber-300 text-xs font-bold text-amber-950">
+                <i class="fa-solid fa-users text-amber-700 mr-1"></i> <span id="headerTeamName">Team</span>
+            </div>
+
+            <!-- BGM Music Toggle -->
+            <button id="bgmToggleBtn" onclick="toggleBGM()" class="bubble-btn bg-amber-500 hover:bg-amber-600 text-white text-xs px-2.5 py-1.5 rounded-xl font-bold shadow flex items-center gap-1 border-b-2 border-amber-700">
+                <i id="bgmIcon" class="fa-solid fa-music"></i> <span id="bgmStatusText" class="hidden sm:inline">BGM: OFF</span>
+            </button>
+
+            <!-- Reset Button -->
+            <button onclick="resetGame()" class="bubble-btn bg-rose-500 hover:bg-rose-600 text-white text-xs px-2.5 py-1.5 rounded-xl font-bold shadow border-b-2 border-rose-700">
+                <i class="fa-solid fa-rotate-left"></i> <span class="hidden sm:inline">Restart</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Notification Toast Container -->
+    <div id="toastContainer" class="fixed top-14 right-4 z-50 flex flex-col gap-1.5 pointer-events-none"></div>
+
+    <main class="flex-1 relative overflow-hidden flex flex-col items-center justify-center my-1">
+
+        <!-- SCREEN 1: TITLE / WELCOME SCREEN -->
+        <section id="screenWelcome" class="w-full max-w-xl bg-white/95 backdrop-blur-md rounded-3xl p-5 md:p-6 shadow-xl border-4 border-amber-300 text-center flex flex-col items-center justify-center my-auto">
+            <div class="relative mb-2">
+                <div class="w-28 h-28 md:w-36 md:h-36 bg-gradient-to-b from-amber-200 to-yellow-100 rounded-full flex items-center justify-center border-4 border-amber-400 shadow-md animate-float">
+                    <span class="text-6xl md:text-7xl">🪵</span>
+                </div>
+                <div class="absolute -top-2 -right-2 bg-amber-400 text-amber-950 text-[10px] md:text-xs font-bold px-2.5 py-0.5 rounded-full shadow border border-amber-200">
+                    👨‍🍳 Chef Tung Tung
+                </div>
+                <div class="absolute -bottom-1 -left-1 text-2xl">⚾</div>
+            </div>
+
+            <h2 class="font-game text-xl md:text-3xl text-amber-700 mb-1">Welcome to Tung Tung Kitchen!</h2>
+            <p class="text-slate-600 text-xs max-w-md mb-3 leading-relaxed">
+                Enjoy shopping for ingredients, practicing English `There is / There are` grammar, and cooking with Tung Tung Sahur!
+            </p>
+
+            <!-- Team Name Input -->
+            <div class="w-full max-w-xs mb-4">
+                <label class="block text-xs font-bold text-amber-900 mb-1 text-left">Enter Team Name:</label>
+                <div class="relative">
+                    <i class="fa-solid fa-id-card absolute left-3 top-2.5 text-amber-400"></i>
+                    <input type="text" id="teamNameInput" placeholder="Team Name..." value="Chef Tung Tung Team" class="w-full pl-9 pr-3 py-1.5 bg-amber-50 border-2 border-amber-300 rounded-xl font-bold text-amber-950 text-xs md:text-sm focus:outline-none focus:border-amber-500">
+                </div>
+            </div>
+
+            <button onclick="startApp()" class="bubble-btn bg-amber-400 hover:bg-amber-500 text-amber-950 font-game text-lg px-7 py-2.5 rounded-2xl shadow-lg border-b-4 border-amber-600 flex items-center gap-2">
+                <i class="fa-solid fa-play"></i> Start Game
+            </button>
+        </section>
+
+        <!-- SCREEN 2: SUPERMARKET (LEFT SHELF, RIGHT CART & BUDGET) -->
+        <section id="screenSupermarket" class="w-full h-full max-w-6xl flex flex-col justify-between hidden">
+            <!-- Top Category Filter Tabs -->
+            <div class="flex flex-wrap gap-1.5 mb-1.5 justify-center shrink-0">
+                <button onclick="filterCategory('all')" class="cat-btn active bg-amber-500 text-white px-3 py-1 rounded-xl font-bold text-xs shadow border-b-2 border-amber-700">All</button>
+                <button onclick="filterCategory('veggie')" class="cat-btn bg-white text-slate-700 hover:bg-emerald-100 px-3 py-1 rounded-xl font-bold text-xs shadow border-b-2 border-slate-200">🥗 Veggie</button>
+                <button onclick="filterCategory('meat')" class="cat-btn bg-white text-slate-700 hover:bg-rose-100 px-3 py-1 rounded-xl font-bold text-xs shadow border-b-2 border-slate-200">🥩 Meat</button>
+                <button onclick="filterCategory('sauce')" class="cat-btn bg-white text-slate-700 hover:bg-orange-100 px-3 py-1 rounded-xl font-bold text-xs shadow border-b-2 border-slate-200">🧴 Sauce</button>
+                <button onclick="filterCategory('grain')" class="cat-btn bg-white text-slate-700 hover:bg-yellow-100 px-3 py-1 rounded-xl font-bold text-xs shadow border-b-2 border-slate-200">🌾 Grain</button>
+                <button onclick="filterCategory('dairy')" class="cat-btn bg-white text-slate-700 hover:bg-blue-100 px-3 py-1 rounded-xl font-bold text-xs shadow border-b-2 border-slate-200">🥛 Dairy</button>
+            </div>
+
+            <!-- Split Grid: Left Market Shelf, Right Cart & Budget -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-3 overflow-hidden flex-1 mb-1">
+                
+                <!-- LEFT SIDE: Ingredient Shelf (2 Cols) -->
+                <div class="lg:col-span-2 bg-white/90 backdrop-blur-md rounded-2xl p-2.5 shadow-md border-2 border-amber-200 overflow-y-auto max-h-[55vh] lg:max-h-full">
+                    <div id="ingredientGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                        <!-- Dynamic Item Cards -->
+                    </div>
+                </div>
+
+                <!-- RIGHT SIDE: Shopping Cart & Budget Calculation (1 Col) -->
+                <div class="bg-amber-50/90 backdrop-blur-md rounded-2xl p-3 shadow-md border-2 border-amber-300 flex flex-col justify-between max-h-[55vh] lg:max-h-full">
+                    <div class="flex-1 flex flex-col overflow-hidden">
+                        <!-- Header & Budget -->
+                        <div class="pb-2 border-b-2 border-amber-200 mb-2 shrink-0">
+                            <div class="flex justify-between items-center mb-1">
+                                <h3 class="font-game text-sm text-amber-950 flex items-center gap-1">
+                                    <i class="fa-solid fa-basket-shopping text-emerald-600"></i> Shopping Cart
+                                </h3>
+                                <span id="cartCountBadge" class="bg-emerald-500 text-white font-bold text-[10px] px-2 py-0.5 rounded-full">0 items</span>
+                            </div>
+                            <div class="bg-amber-100 border border-amber-300 rounded-xl p-1.5 flex justify-between items-center">
+                                <span class="text-xs font-bold text-amber-900"><i class="fa-solid fa-wallet text-amber-600"></i> Budget:</span>
+                                <span class="font-game text-xs text-emerald-700"><span id="budgetText">200</span> / 200 THB</span>
+                            </div>
+                        </div>
+
+                        <!-- Itemized Cart List -->
+                        <div id="cartItemsList" class="space-y-1 overflow-y-auto flex-1 pr-1">
+                            <p class="text-slate-400 text-center text-xs py-8">Cart is empty. Select items on the left!</p>
+                        </div>
+                    </div>
+
+                    <!-- Cart Footer Summary -->
+                    <div class="pt-2 border-t-2 border-amber-200 shrink-0">
+                        <div class="flex justify-between text-xs font-bold text-slate-700 mb-1.5">
+                            <span>Total:</span>
+                            <span id="cartTotalText" class="text-amber-900 font-game text-sm">0 THB</span>
+                        </div>
+                        <button id="checkoutBtn" onclick="goToCheckout()" disabled class="w-full bubble-btn bg-emerald-500 hover:bg-emerald-600 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-game text-xs py-2 rounded-xl shadow border-b-2 border-emerald-700 flex items-center justify-center gap-1.5">
+                            Go to Cashier <i class="fa-solid fa-arrow-right"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SCREEN 3: CASHIER & GRAMMAR QUIZ -->
+        <section id="screenCheckout" class="w-full max-w-xl bg-white/95 backdrop-blur-md rounded-3xl p-4 shadow-xl border-4 border-amber-300 flex flex-col items-center hidden my-auto">
+            <div class="flex items-center gap-2.5 bg-amber-100 w-full p-2.5 rounded-2xl border border-amber-200 mb-3">
+                <div class="w-12 h-12 bg-white rounded-full flex items-center justify-center text-2xl shadow border border-amber-300 shrink-0">
+                    🪵
+                </div>
+                <div>
+                    <h3 class="font-game text-sm text-amber-950">Cashier Tung Tung</h3>
+                    <p class="text-[11px] text-slate-600">"Answer the English grammar question to checkout!"</p>
+                </div>
+            </div>
+
+            <!-- Grammar Challenge Card -->
+            <div class="w-full bg-amber-50 border-2 border-amber-200 rounded-2xl p-3 mb-3 text-center">
+                <span class="bg-amber-500 text-white font-bold text-[9px] px-2 py-0.5 rounded-full uppercase tracking-wider mb-1 inline-block">Grammar Challenge</span>
+                <p class="text-slate-800 font-bold text-xs md:text-sm my-1.5" id="grammarQuestionText">
+                    Loading question...
+                </p>
+                <div id="grammarOptions" class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+                    <!-- Dynamic Option Buttons -->
+                </div>
+            </div>
+
+            <div id="grammarFeedback" class="hidden w-full p-2 rounded-xl text-center font-bold text-xs mb-2"></div>
+
+            <button id="proceedToKitchenBtn" onclick="switchScreen('screenKitchen')" class="hidden bubble-btn bg-emerald-500 hover:bg-emerald-600 text-white font-game text-sm px-6 py-2 rounded-xl shadow border-b-2 border-emerald-700">
+                Enter Kitchen <i class="fa-solid fa-utensils ml-1"></i>
+            </button>
+        </section>
+
+        <!-- SCREEN 4: KITCHEN STUDIO (ALL APPLIANCES COMBINED - NO TABS!) -->
+        <section id="screenKitchen" class="w-full h-full max-w-6xl flex flex-col justify-between hidden">
+            
+            <div class="bg-amber-500 text-white px-3 py-1 rounded-xl mb-1.5 flex justify-between items-center shadow shrink-0">
+                <span class="font-game text-xs"><i class="fa-solid fa-utensils"></i> Combined Kitchen Studio</span>
+                <span class="text-[10px] bg-amber-700 px-2 py-0.5 rounded-full font-bold">Select ingredient on left, then click workstation!</span>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-4 gap-2.5 flex-1 overflow-hidden">
+                
+                <!-- Left: Pantry Inventory (1 Col) -->
+                <div class="bg-white/90 backdrop-blur-md rounded-2xl p-2.5 shadow-md border-2 border-amber-200 flex flex-col justify-between max-h-[35vh] lg:max-h-full">
+                    <h3 class="font-game text-xs text-amber-950 border-b pb-1 mb-1.5 flex justify-between items-center">
+                        <span><i class="fa-solid fa-basket-shopping text-amber-600"></i> Your Ingredients</span>
+                        <span id="pantryCountBadge" class="text-[10px] bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full font-bold">0</span>
+                    </h3>
+                    <div id="pantryList" class="space-y-1 overflow-y-auto flex-1 pr-1">
+                        <!-- Inventory rendered dynamically -->
+                    </div>
+                </div>
+
+                <!-- Right: All 6 Appliances Grid (3 Cols) -->
+                <div class="lg:col-span-3 bg-gradient-to-br from-amber-100 via-yellow-100 to-orange-100 rounded-2xl p-2.5 shadow-md border-2 border-amber-300 overflow-y-auto max-h-[50vh] lg:max-h-full">
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        
+                        <!-- 1. Cutting Board -->
+                        <div class="bg-white/90 rounded-xl p-2 border-2 border-amber-300 shadow-sm flex flex-col items-center justify-between text-center relative">
+                            <span class="text-[10px] font-bold text-amber-900 uppercase">1. Cutting Board</span>
+                            <div class="w-full h-16 bg-amber-50 rounded-lg border border-amber-300 my-1 flex items-center justify-center text-3xl relative overflow-hidden" id="applianceCutting">
+                                🔪
+                            </div>
+                            <button onclick="useAppliance('cutting')" class="bubble-btn w-full bg-rose-500 hover:bg-rose-600 text-white font-bold text-[10px] py-1 rounded-lg shadow border-b-2 border-rose-700">
+                                🔪 Slice / Chop
+                            </button>
+                        </div>
+
+                        <!-- 2. Mortar & Pestle -->
+                        <div class="bg-white/90 rounded-xl p-2 border-2 border-amber-300 shadow-sm flex flex-col items-center justify-between text-center relative">
+                            <span class="text-[10px] font-bold text-amber-900 uppercase">2. Mortar</span>
+                            <div class="w-full h-16 bg-amber-50 rounded-lg border border-amber-300 my-1 flex items-center justify-center text-3xl relative" id="applianceMortar">
+                                🥣
+                            </div>
+                            <button onclick="useAppliance('mortar')" class="bubble-btn w-full bg-amber-600 hover:bg-amber-700 text-white font-bold text-[10px] py-1 rounded-lg shadow border-b-2 border-amber-800">
+                                🔨 Pound / Grind
+                            </button>
+                        </div>
+
+                        <!-- 3. Frying Pan -->
+                        <div class="bg-white/90 rounded-xl p-2 border-2 border-amber-300 shadow-sm flex flex-col items-center justify-between text-center relative">
+                            <span class="text-[10px] font-bold text-amber-900 uppercase">3. Frying Pan</span>
+                            <div class="w-full h-16 bg-amber-50 rounded-lg border border-amber-300 my-1 flex items-center justify-center text-3xl relative" id="appliancePan">
+                                🍳
+                            </div>
+                            <button onclick="useAppliance('pan')" class="bubble-btn w-full bg-orange-500 hover:bg-orange-600 text-white font-bold text-[10px] py-1 rounded-lg shadow border-b-2 border-orange-700">
+                                🔥 Stir-Fry / Sizzle
+                            </button>
+                        </div>
+
+                        <!-- 4. Soup Pot -->
+                        <div class="bg-white/90 rounded-xl p-2 border-2 border-amber-300 shadow-sm flex flex-col items-center justify-between text-center relative">
+                            <span class="text-[10px] font-bold text-amber-900 uppercase">4. Soup Pot</span>
+                            <div class="w-full h-16 bg-amber-50 rounded-lg border border-amber-300 my-1 flex items-center justify-center text-3xl relative" id="appliancePot">
+                                🍲
+                            </div>
+                            <button onclick="useAppliance('pot')" class="bubble-btn w-full bg-blue-500 hover:bg-blue-600 text-white font-bold text-[10px] py-1 rounded-lg shadow border-b-2 border-blue-700">
+                                💧 Boil / Soup
+                            </button>
+                        </div>
+
+                        <!-- 5. Rice Cooker -->
+                        <div class="bg-white/90 rounded-xl p-2 border-2 border-amber-300 shadow-sm flex flex-col items-center justify-between text-center relative">
+                            <span class="text-[10px] font-bold text-amber-900 uppercase">5. Steamer</span>
+                            <div class="w-full h-16 bg-amber-50 rounded-lg border border-amber-300 my-1 flex items-center justify-center text-3xl relative" id="applianceSteamer">
+                                🍚
+                            </div>
+                            <button onclick="useAppliance('steamer')" class="bubble-btn w-full bg-teal-500 hover:bg-teal-600 text-white font-bold text-[10px] py-1 rounded-lg shadow border-b-2 border-teal-700">
+                                💨 Steam / Rice
+                            </button>
+                        </div>
+
+                        <!-- 6. Serving Platter -->
+                        <div class="bg-white/90 rounded-xl p-2 border-2 border-emerald-300 shadow-sm flex flex-col items-center justify-between text-center relative">
+                            <span class="text-[10px] font-bold text-emerald-900 uppercase">6. Plating</span>
+                            <div class="w-full h-16 bg-emerald-50 rounded-lg border border-emerald-300 my-1 flex items-center justify-center text-3xl relative" id="applianceServing">
+                                🍽️
+                            </div>
+                            <button onclick="goToPlating()" class="bubble-btn w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-[10px] py-1 rounded-lg shadow border-b-2 border-emerald-700">
+                                ✨ Go to Serve
+                            </button>
+                        </div>
+
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- SCREEN 5: PLATING & DISH NAMING -->
+        <section id="screenPlating" class="w-full max-w-lg bg-white/95 backdrop-blur-md rounded-3xl p-4 shadow-xl border-4 border-amber-300 flex flex-col items-center hidden my-auto">
+            <h2 class="font-game text-xl text-amber-800 mb-0.5">Serve & Name Your Dish 🍽️</h2>
+            <p class="text-xs text-slate-600 mb-3">Give your culinary creation a custom name!</p>
+
+            <div class="w-full bg-amber-50 border-2 border-amber-200 rounded-2xl p-3 text-center shadow-inner mb-3">
+                <div class="text-5xl mb-1 animate-float">🍲</div>
+
+                <!-- Custom Dish Name Input -->
+                <div class="w-full max-w-xs mx-auto mb-2">
+                    <label class="block text-xs font-bold text-amber-900 mb-1 text-left">Dish Name:</label>
+                    <input type="text" id="dishNameInput" value="Tung Tung Special Pad Thai" placeholder="Enter dish name..." class="w-full px-3 py-1.5 bg-white border-2 border-amber-300 rounded-xl font-bold text-amber-950 text-xs text-center focus:outline-none focus:border-amber-500">
+                </div>
+
+                <p id="platingGrammarSummary" class="text-xs text-amber-900 font-semibold italic bg-white/80 p-2 rounded-xl border border-amber-200">
+                    "There are delicious cooked ingredients ready to be served!"
+                </p>
+            </div>
+
+            <button onclick="submitToJudge()" class="bubble-btn bg-emerald-500 hover:bg-emerald-600 text-white font-game text-sm px-7 py-2 rounded-xl shadow border-b-2 border-emerald-700">
+                Submit to Judge 🏆
+            </button>
+        </section>
+
+        <!-- SCREEN 6: JUDGE TUNG TUNG REACTION & SCORING -->
+        <section id="screenJudge" class="w-full max-w-md bg-white/95 backdrop-blur-md rounded-3xl p-5 shadow-xl border-4 border-amber-300 flex flex-col items-center text-center hidden my-auto">
+            
+            <!-- Judge Mascot Stage -->
+            <div class="relative mb-2">
+                <div id="judgeMascotAvatar" class="w-24 h-24 md:w-28 md:h-28 bg-gradient-to-b from-amber-100 to-yellow-200 rounded-full flex items-center justify-center border-4 border-amber-400 shadow-md">
+                    <span id="judgeMascotEmoji" class="text-5xl md:text-6xl">🪵</span>
+                </div>
+                <div id="judgeSpeechBubble" class="absolute -top-4 -right-10 bg-amber-300 text-amber-950 font-game text-xs px-2.5 py-1 rounded-xl shadow border border-amber-400 transform rotate-6">
+                    DELICIOUS! YUMMY!
+                </div>
+            </div>
+
+            <h3 id="judgeDishTitle" class="font-game text-xl text-amber-900 mb-0.5">Tung Tung Special Pad Thai</h3>
+            <p id="judgeTeamText" class="text-xs text-slate-500 font-bold mb-2.5">By: Chef Tung Tung Team</p>
+
+            <!-- Scorecard -->
+            <div class="bg-amber-50 border-2 border-amber-200 rounded-2xl p-3 w-full mb-3 shadow-inner">
+                <div class="text-[10px] text-amber-800 font-bold uppercase tracking-wider mb-0.5">Total Score</div>
+                <div class="font-game text-3xl text-amber-600 my-0.5"><span id="finalScoreNum">100</span> / 100</div>
+                <div id="starRatingContainer" class="flex justify-center gap-1 text-yellow-400 text-xl my-0.5">
+                    <i class="fa-solid fa-star"></i>
+                    <i class="fa-solid fa-star"></i>
+                    <i class="fa-solid fa-star"></i>
+                    <i class="fa-solid fa-star"></i>
+                    <i class="fa-solid fa-star"></i>
+                </div>
+            </div>
+
+            <button onclick="resetGame()" class="bubble-btn bg-amber-500 hover:bg-amber-600 text-white font-game text-sm px-7 py-2 rounded-xl shadow border-b-2 border-amber-700">
+                Play Again 🔄
+            </button>
+        </section>
+
+    </main>
+
+    <script>
+        // Web Audio API Sound Synthesizer & BGM
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        let audioCtx = null;
+        let isBgmPlaying = false;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new AudioCtx();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function toggleBGM() {
+            initAudio();
+            const statusText = document.getElementById('bgmStatusText');
+            const icon = document.getElementById('bgmIcon');
+
+            if (isBgmPlaying) {
+                stopBGM();
+                statusText.innerText = "BGM: OFF";
+                icon.className = "fa-solid fa-music";
+            } else {
+                startBGM();
+                statusText.innerText = "BGM: ON";
+                icon.className = "fa-solid fa-volume-high text-yellow-300";
+            }
+        }
+
+        function startBGM() {
+            if (isBgmPlaying) return;
+            try {
+                isBgmPlaying = true;
+                playBGMLoop();
+            } catch(e) { console.log(e); }
+        }
+
+        function stopBGM() {
+            isBgmPlaying = false;
+        }
+
+        function playBGMLoop() {
+            if (!isBgmPlaying || !audioCtx) return;
+
+            const notes = [261.63, 329.63, 392.00, 523.25, 392.00, 329.63];
+            let step = 0;
+
+            const interval = setInterval(() => {
+                if (!isBgmPlaying) {
+                    clearInterval(interval);
+                    return;
+                }
+                const now = audioCtx.currentTime;
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(notes[step % notes.length], now);
+
+                gain.gain.setValueAtTime(0.04, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                osc.start(now);
+                osc.stop(now + 0.2);
+
+                step++;
+            }, 250);
+        }
+
+        function playSFX(type) {
+            try {
+                initAudio();
+                if (!audioCtx) return;
+                const now = audioCtx.currentTime;
+
+                if (type === 'chop') {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(300, now);
+                    osc.frequency.exponentialRampToValueAtTime(80, now + 0.08);
+                    gain.gain.setValueAtTime(0.4, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start();
+                    osc.stop(now + 0.08);
+                } 
+                else if (type === 'pound') {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(120, now);
+                    osc.frequency.exponentialRampToValueAtTime(30, now + 0.15);
+                    gain.gain.setValueAtTime(0.6, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start();
+                    osc.stop(now + 0.15);
+                } 
+                else if (type === 'fanfare') {
+                    const freqs = [261.63, 329.63, 392.00, 523.25];
+                    freqs.forEach((f, i) => {
+                        const osc = audioCtx.createOscillator();
+                        const gain = audioCtx.createGain();
+                        osc.type = 'triangle';
+                        osc.frequency.setValueAtTime(f, now + i * 0.1);
+                        gain.gain.setValueAtTime(0.3, now + i * 0.1);
+                        gain.gain.exponentialRampToValueAtTime(0.01, now + i * 0.1 + 0.2);
+                        osc.connect(gain);
+                        gain.connect(audioCtx.destination);
+                        osc.start(now + i * 0.1);
+                        osc.stop(now + i * 0.1 + 0.2);
+                    });
+                }
+            } catch(e) {}
+        }
+
+        // Global State Variables
+        const INITIAL_BUDGET = 200;
+        let budget = INITIAL_BUDGET;
+        let teamName = "Chef Tung Tung Team";
+        let cart = [];
+        let pantry = [];
+        let currentCategory = 'all';
+        let selectedPantryItem = null;
+
+        // English Dataset
+        const ingredients = [
+            // Vegetables
+            { id: 'papaya', name: 'Papaya', category: 'veggie', price: 15, emoji: '🍈' },
+            { id: 'tomato', name: 'Tomato', category: 'veggie', price: 10, emoji: '🍅' },
+            { id: 'chili', name: 'Chili', category: 'veggie', price: 5, emoji: '🌶️' },
+            { id: 'garlic', name: 'Garlic', category: 'veggie', price: 5, emoji: '🧄' },
+            { id: 'lime', name: 'Lime', category: 'veggie', price: 5, emoji: '🍋' },
+            { id: 'onion', name: 'Onion', category: 'veggie', price: 8, emoji: '🧅' },
+            { id: 'carrot', name: 'Carrot', category: 'veggie', price: 12, emoji: '🥕' },
+            { id: 'broccoli', name: 'Broccoli', category: 'veggie', price: 18, emoji: '🥦' },
+            { id: 'corn', name: 'Corn', category: 'veggie', price: 15, emoji: '🌽' },
+
+            // Meats & Seafood
+            { id: 'chicken', name: 'Chicken', category: 'meat', price: 35, emoji: '🍗' },
+            { id: 'pork', name: 'Pork', category: 'meat', price: 40, emoji: '🥩' },
+            { id: 'beef', name: 'Beef', category: 'meat', price: 50, emoji: '🥩' },
+            { id: 'shrimp', name: 'Shrimp', category: 'meat', price: 45, emoji: '🦐' },
+            { id: 'fish', name: 'Fish', category: 'meat', price: 38, emoji: '🐟' },
+            { id: 'egg', name: 'Egg', category: 'meat', price: 6, emoji: '🥚' },
+
+            // Sauces & Seasonings
+            { id: 'fishsauce', name: 'Fish Sauce', category: 'sauce', price: 15, emoji: '🧴' },
+            { id: 'soysauce', name: 'Soy Sauce', category: 'sauce', price: 12, emoji: '🍾' },
+            { id: 'sugar', name: 'Palm Sugar', category: 'sauce', price: 10, emoji: '🍯' },
+            { id: 'salt', name: 'Salt', category: 'sauce', price: 5, emoji: '🧂' },
+
+            // Grains & Rice
+            { id: 'rice', name: 'Jasmine Rice', category: 'grain', price: 15, emoji: '🍚' },
+            { id: 'stickyrice', name: 'Sticky Rice', category: 'grain', price: 15, emoji: '🌾' },
+            { id: 'noodle', name: 'Noodle', category: 'grain', price: 18, emoji: '🍜' },
+
+            // Dairy & Sweet
+            { id: 'coconutmilk', name: 'Coconut Milk', category: 'dairy', price: 25, emoji: '🥥' },
+            { id: 'cheese', name: 'Cheese', category: 'dairy', price: 30, emoji: '🧀' },
+            { id: 'milk', name: 'Fresh Milk', category: 'dairy', price: 18, emoji: '🥛' }
+        ];
+
+        // Toast Messages
+        function showToast(msg, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            let bg = 'bg-amber-600';
+            if (type === 'success') bg = 'bg-emerald-600';
+            if (type === 'error') bg = 'bg-rose-600';
+
+            toast.className = `${bg} text-white px-3 py-1.5 rounded-xl shadow-lg border border-white/20 text-xs font-bold flex items-center gap-1.5 transition-all duration-300 pointer-events-auto`;
+            toast.innerHTML = `<i class="fa-solid fa-bell text-xs"></i> ${msg}`;
+
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 2500);
+        }
+
+        function switchScreen(screenId) {
+            initAudio();
+            document.querySelectorAll('main > section').forEach(s => s.classList.add('hidden'));
+            document.getElementById(screenId).classList.remove('hidden');
+
+            if (screenId === 'screenSupermarket') {
+                renderMarketShelf();
+            } else if (screenId === 'screenKitchen') {
+                renderKitchenPantry();
+            }
+        }
+
+        function startApp() {
+            const nameInput = document.getElementById('teamNameInput').value.trim();
+            if (nameInput) teamName = nameInput;
+
+            document.getElementById('headerTeamName').innerText = teamName;
+            document.getElementById('headerTeamBadge').classList.remove('hidden');
+
+            switchScreen('screenSupermarket');
+            showToast(`Welcome ${teamName}!`, 'success');
+        }
+
+        // Supermarket Shelf Filter
+        function filterCategory(cat) {
+            currentCategory = cat;
+            document.querySelectorAll('.cat-btn').forEach(btn => {
+                btn.classList.remove('active', 'bg-amber-500', 'text-white');
+                btn.classList.add('bg-white', 'text-slate-700');
+            });
+            event.currentTarget.classList.add('active', 'bg-amber-500', 'text-white');
+            event.currentTarget.classList.remove('bg-white', 'text-slate-700');
+            renderMarketShelf();
+        }
+
+        function renderMarketShelf() {
+            const grid = document.getElementById('ingredientGrid');
+            grid.innerHTML = '';
+
+            const list = currentCategory === 'all' 
+                ? ingredients 
+                : ingredients.filter(i => i.category === currentCategory);
+
+            list.forEach(item => {
+                const inCart = cart.find(c => c.id === item.id);
+                const count = inCart ? inCart.qty : 0;
+
+                const card = document.createElement('div');
+                card.className = 'bg-amber-50/70 hover:bg-amber-100 rounded-xl p-1.5 border border-amber-200 shadow-sm flex flex-col items-center justify-between transition text-center relative';
+                card.innerHTML = `
+                    <div class="text-2xl my-0.5">${item.emoji}</div>
+                    <div class="font-bold text-[10px] text-amber-950 leading-tight">${item.name}</div>
+                    <div class="text-[9px] text-amber-700 font-bold my-0.5">${item.price} THB</div>
+                    <button onclick="addToCart('${item.id}')" class="bubble-btn w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-[9px] py-0.5 rounded-lg shadow border-b-2 border-emerald-700">
+                        + Buy
+                    </button>
+                    ${count > 0 ? `<span class="absolute -top-1 -right-1 bg-rose-500 text-white font-bold text-[9px] w-4 h-4 rounded-full flex items-center justify-center border border-white shadow">${count}</span>` : ''}
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function addToCart(itemId) {
+            const item = ingredients.find(i => i.id === itemId);
+            const totalSpent = cart.reduce((sum, i) => sum + (i.price * i.qty), 0);
+
+            if (totalSpent + item.price > INITIAL_BUDGET) {
+                showToast("Not enough budget left!", "error");
+                return;
+            }
+
+            const existing = cart.find(c => c.id === itemId);
+            if (existing) {
+                existing.qty += 1;
+            } else {
+                cart.push({ ...item, qty: 1, state: 'raw' });
+            }
+
+            updateCartUI();
+            renderMarketShelf();
+        }
+
+        function updateCartUI() {
+            const list = document.getElementById('cartItemsList');
+            const totalText = document.getElementById('cartTotalText');
+            const budgetText = document.getElementById('budgetText');
+            const countBadge = document.getElementById('cartCountBadge');
+            const checkoutBtn = document.getElementById('checkoutBtn');
+
+            list.innerHTML = '';
+            const totalSpent = cart.reduce((s, i) => s + (i.price * i.qty), 0);
+            const totalQty = cart.reduce((s, i) => s + i.qty, 0);
+
+            budget = INITIAL_BUDGET - totalSpent;
+            budgetText.innerText = budget;
+            totalText.innerText = `${totalSpent} THB`;
+            countBadge.innerText = `${totalQty} items`;
+
+            if (cart.length === 0) {
+                list.innerHTML = `<p class="text-slate-400 text-center text-xs py-8">Cart is empty. Select items on the left!</p>`;
+                checkoutBtn.disabled = true;
+            } else {
+                checkoutBtn.disabled = false;
+                cart.forEach(item => {
+                    const row = document.createElement('div');
+                    row.className = 'bg-white rounded-lg p-1.5 border border-amber-200 flex items-center justify-between text-xs';
+                    row.innerHTML = `
+                        <div class="flex items-center gap-1.5">
+                            <span class="text-lg">${item.emoji}</span>
+                            <div>
+                                <div class="font-bold text-slate-800 text-[11px]">${item.name}</div>
+                                <div class="text-[9px] text-amber-700 font-semibold">${item.price * item.qty} THB</div>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-1">
+                            <button onclick="changeQty('${item.id}', -1)" class="w-4 h-4 bg-slate-100 hover:bg-rose-100 text-rose-600 rounded-full font-bold flex items-center justify-center text-[10px]">-</button>
+                            <span class="font-bold text-slate-800 px-1 text-[10px]">${item.qty}</span>
+                            <button onclick="changeQty('${item.id}', 1)" class="w-4 h-4 bg-slate-100 hover:bg-emerald-100 text-emerald-600 rounded-full font-bold flex items-center justify-center text-[10px]">+</button>
+                        </div>
+                    `;
+                    list.appendChild(row);
+                });
+            }
+        }
+
+        function changeQty(itemId, delta) {
+            const existing = cart.find(c => c.id === itemId);
+            if (existing) {
+                existing.qty += delta;
+                if (existing.qty <= 0) {
+                    cart = cart.filter(c => c.id !== itemId);
+                }
+            }
+            updateCartUI();
+            renderMarketShelf();
+        }
+
+        // Cashier Quiz Logic
+        let currentGrammarAnswer = "";
+
+        function goToCheckout() {
+            if (cart.length === 0) return;
+            switchScreen('screenCheckout');
+
+            const item = cart[Math.floor(Math.random() * cart.length)];
+            const isPlural = item.qty > 1;
+            currentGrammarAnswer = isPlural ? "There are" : "There is";
+
+            document.getElementById('grammarQuestionText').innerHTML = `
+                ___ <span class="text-amber-700">${item.qty} ${item.name}${isPlural ? 's' : ''}</span> in the shopping cart.
+            `;
+
+            const opts = document.getElementById('grammarOptions');
+            opts.innerHTML = `
+                <button onclick="checkGrammar('There is')" class="bubble-btn bg-amber-400 hover:bg-amber-500 text-amber-950 font-game text-xs py-2 rounded-xl border-b-2 border-amber-600">
+                    There is
+                </button>
+                <button onclick="checkGrammar('There are')" class="bubble-btn bg-amber-400 hover:bg-amber-500 text-amber-950 font-game text-xs py-2 rounded-xl border-b-2 border-amber-600">
+                    There are
+                </button>
+            `;
+
+            document.getElementById('grammarFeedback').classList.add('hidden');
+            document.getElementById('proceedToKitchenBtn').classList.add('hidden');
+        }
+
+        function checkGrammar(ans) {
+            const feedback = document.getElementById('grammarFeedback');
+            const btn = document.getElementById('proceedToKitchenBtn');
+            feedback.classList.remove('hidden');
+
+            if (ans === currentGrammarAnswer) {
+                playSFX('fanfare');
+                feedback.className = "w-full p-2 rounded-xl text-center font-bold text-xs mb-2 bg-emerald-100 text-emerald-800 border border-emerald-300";
+                feedback.innerText = "Correct! Excellent grammar skills! 🎉";
+                btn.classList.remove('hidden');
+                pantry = JSON.parse(JSON.stringify(cart));
+            } else {
+                feedback.className = "w-full p-2 rounded-xl text-center font-bold text-xs mb-2 bg-rose-100 text-rose-800 border border-rose-300";
+                feedback.innerText = "Almost! Use 'There is' for 1 item, and 'There are' for multiple items.";
+            }
+        }
+
+        // Kitchen Pantry & Workstations
+        function renderKitchenPantry() {
+            const list = document.getElementById('pantryList');
+            const badge = document.getElementById('pantryCountBadge');
+            list.innerHTML = '';
+
+            const total = pantry.reduce((s, i) => s + i.qty, 0);
+            badge.innerText = total;
+
+            pantry.forEach(item => {
+                const card = document.createElement('div');
+                const isSelected = selectedPantryItem && selectedPantryItem.id === item.id;
+                card.className = `p-1.5 rounded-xl border transition cursor-pointer flex items-center justify-between text-xs ${isSelected ? 'bg-amber-200 border-amber-500 shadow-md ring-2 ring-amber-400' : 'bg-amber-50 border-amber-200 hover:bg-amber-100'}`;
+                card.onclick = () => selectPantryItem(item);
+                card.innerHTML = `
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-lg">${item.emoji}</span>
+                        <div>
+                            <div class="font-bold text-slate-800 text-[10px]">${item.name}</div>
+                            <div class="text-[8px] text-amber-800 font-semibold">State: ${item.state}</div>
+                        </div>
+                    </div>
+                    <span class="bg-amber-200 text-amber-950 font-bold text-[9px] px-1.5 py-0.5 rounded-full">x${item.qty}</span>
+                `;
+                list.appendChild(card);
+            });
+        }
+
+        function selectPantryItem(item) {
+            selectedPantryItem = item;
+            renderKitchenPantry();
+            showToast(`Selected ${item.name}! Click a workstation button.`, 'info');
+        }
+
+        function useAppliance(applianceType) {
+            if (!selectedPantryItem) {
+                showToast("Select an ingredient from the left first!", "error");
+                return;
+            }
+
+            playSFX(applianceType === 'mortar' ? 'pound' : 'chop');
+            selectedPantryItem.state = applianceType + 'ed';
+
+            const container = document.getElementById(`appliance${applianceType.charAt(0).toUpperCase() + applianceType.slice(1)}`);
+            if (container) {
+                container.innerHTML = `<span class="animate-bounce">${selectedPantryItem.emoji}</span>`;
+            }
+
+            showToast(`Processed ${selectedPantryItem.name}!`, 'success');
+            renderKitchenPantry();
+        }
+
+        // Plating & Dish Naming
+        function goToPlating() {
+            switchScreen('screenPlating');
+            const totalItems = pantry.reduce((s, i) => s + i.qty, 0);
+            const sentence = totalItems > 1 
+                ? `There are ${totalItems} delicious ingredients on the plate!`
+                : `There is 1 delicious ingredient on the plate!`;
+
+            document.getElementById('platingGrammarSummary').innerText = `"${sentence}"`;
+        }
+
+        function submitToJudge() {
+            playSFX('fanfare');
+            const dishName = document.getElementById('dishNameInput').value.trim() || "Tung Tung Special Dish";
+            
+            document.getElementById('judgeDishTitle').innerText = dishName;
+            document.getElementById('judgeTeamText').innerText = `By: ${teamName}`;
+            
+            triggerFireworks();
+            switchScreen('screenJudge');
+        }
+
+        // Fireworks Particle FX
+        function triggerFireworks() {
+            const canvas = document.getElementById('fxCanvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+
+            const particles = [];
+            for (let i = 0; i < 60; i++) {
+                particles.push({
+                    x: canvas.width / 2,
+                    y: canvas.height / 2,
+                    vx: (Math.random() - 0.5) * 12,
+                    vy: (Math.random() - 0.5) * 12,
+                    color: `hsl(${Math.random() * 360}, 100%, 50%)`,
+                    radius: Math.random() * 4 + 2,
+                    alpha: 1
+                });
+            }
+
+            function animateFX() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                let alive = false;
+
+                particles.forEach(p => {
+                    if (p.alpha > 0) {
+                        alive = true;
+                        p.x += p.vx;
+                        p.y += p.vy;
+                        p.alpha -= 0.02;
+
+                        ctx.beginPath();
+                        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                        ctx.fillStyle = p.color;
+                        ctx.globalAlpha = Math.max(0, p.alpha);
+                        ctx.fill();
+                    }
+                });
+
+                if (alive) requestAnimationFrame(animateFX);
+            }
+            animateFX();
+        }
+
+        function resetGame() {
+            cart = [];
+            pantry = [];
+            budget = INITIAL_BUDGET;
+            selectedPantryItem = null;
+            updateCartUI();
+            switchScreen('screenWelcome');
+            showToast("Game reset successfully!", "info");
+        }
+    </script>
+</body>
+</html>

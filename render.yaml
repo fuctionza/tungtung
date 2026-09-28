@@ -1,0 +1,54 @@
+# =======================================================
+# Render Deployment Blueprint — TungTung Restaurant
+# Owner: nananashop19911@gmail.com
+# Platform: Render.com (WebSocket-compatible, free tier)
+#
+# ✅ Supports: Socket.io WebSockets + HTTP polling fallback
+# ✅ Supports: Cross-network / mobile / external Wi-Fi players
+# ✅ Auto-deploys on git push to main/master
+#
+# SETUP STEPS:
+#   1. Push this repo to GitHub
+#   2. Go to https://dashboard.render.com/
+#   3. New → Web Service → Connect your GitHub repo
+#   4. Render auto-reads this file (render.yaml)
+#   5. After deploy, copy your live URL and set PUBLIC_URL below
+#      e.g. https://tungtung-restaurant.onrender.com
+# =======================================================
+
+services:
+  - type: web
+    name: tungtung-restaurant
+    runtime: node
+    plan: free
+    region: singapore          # Closest to Thailand — lowest latency for students
+    branch: main               # Auto-deploy on push to main (or master)
+    buildCommand: npm ci --only=production
+    startCommand: node server.js
+    healthCheckPath: /api/health
+
+    # --- Environment Variables ---
+    envVars:
+      - key: NODE_ENV
+        value: production
+
+      - key: PORT
+        value: 10000            # Render assigns 10000 internally; maps to HTTPS 443 publicly
+
+      - key: HOST
+        value: 0.0.0.0          # Must bind to 0.0.0.0 for Render's load balancer
+
+      - key: CORS_ORIGIN
+        value: "*"
+
+      # PUBLIC_URL: Set this AFTER your first deploy.
+      # Copy your Render domain (e.g. https://tungtung-restaurant.onrender.com)
+      # This is used by the Host QR Code so players on mobile/external Wi-Fi can scan & join.
+      - key: PUBLIC_URL
+        value: ""               # ← FILL IN after first Render deploy
+
+      - key: PROJECT_NAME
+        value: TungTung Restaurant
+
+      - key: OWNER_EMAIL
+        value: nananashop19911@gmail.com

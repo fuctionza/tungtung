@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TungTung Restaurant - Host Dashboard & Projector Control</title>
+    <meta name="description" content="TungTung Restaurant Host Dashboard - Real-Time Kahoot/Blooket style classroom projector screen with PIN, QR code, live student roster, and scoreboards.">
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- QRCode JS CDN for dynamic QR Code generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <!-- Socket.IO Client -->
+    <script src="/socket.io/socket.io.js"></script>
+    <!-- Custom Styles -->
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="relative min-h-screen text-slate-100 flex flex-col justify-between select-none">
+    <!-- Floating Blobs Background -->
+    <div class="bg-blobs">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+        <div class="blob blob-3"></div>
+    </div>
+
+    <!-- HOST TOP NAVIGATION & PIN BANNER -->
+    <header class="game-header px-6 py-4 flex flex-col lg:flex-row items-center justify-between gap-4">
+        <div class="flex items-center space-x-4">
+            <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-500 to-indigo-600 flex items-center justify-center text-3xl shadow-lg border border-white/20">
+                👨‍🍳
+            </div>
+            <div>
+                <h1 class="text-2xl font-bold font-fun bg-gradient-to-r from-amber-400 via-rose-300 to-indigo-300 bg-clip-text text-transparent">
+                    TungTung Restaurant • Host Dashboard
+                </h1>
+                <p class="text-xs text-indigo-300 font-semibold tracking-wider">Live Classroom Projector Control</p>
+            </div>
+        </div>
+
+        <!-- Prominent Ultra-Large Room PIN & Fast Controls -->
+        <div class="flex flex-wrap items-center gap-3">
+            <!-- ULTRA-LARGE ROOM PIN DISPLAY -->
+            <div class="px-6 py-2 rounded-2xl bg-slate-900/95 border-2 border-amber-400 text-center shadow-2xl min-w-[170px] animate-pop">
+                <div class="text-[10px] text-amber-300 uppercase font-bold tracking-widest mb-0.5">ROOM PIN</div>
+                <div id="room-pin-display" class="text-4xl font-extrabold font-fun text-amber-400 tracking-widest leading-none py-1">----</div>
+                <div id="hostRoomPin" class="hidden">----</div>
+            </div>
+
+            <!-- Dynamic QR Code Modal Button -->
+            <button onclick="document.getElementById('qrCodeModal').classList.remove('hidden')" class="px-4 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs btn-bounce flex items-center space-x-1.5 shadow-lg">
+                <i class="fas fa-qrcode text-base"></i>
+                <span>Scan QR</span>
+            </button>
+
+            <!-- Connected Players Count -->
+            <div class="px-3.5 py-2 rounded-2xl bg-slate-900/90 border border-slate-700 text-center shadow-inner">
+                <div class="text-[9px] text-slate-400 uppercase font-bold tracking-widest">Chefs</div>
+                <span id="player-count" class="text-base font-bold font-fun text-emerald-400">0</span>
+                <span id="hostTotalPlayers" class="hidden">0</span>
+            </div>
+
+            <!-- Stage Timer -->
+            <div class="px-3.5 py-2 rounded-2xl bg-slate-900/90 border border-slate-700 text-center shadow-inner">
+                <div class="text-[9px] text-slate-400 uppercase font-bold tracking-widest">Timer</div>
+                <div id="hostTimerDisplay" class="text-base font-bold font-fun text-rose-400">03:00</div>
+            </div>
+
+            <!-- Current Stage Indicator -->
+            <div class="px-3.5 py-2 rounded-2xl bg-indigo-900/50 border border-indigo-500/40 text-center shadow-inner">
+                <div class="text-[9px] text-indigo-300 uppercase font-bold tracking-widest">Stage</div>
+                <div id="hostCurrentStageName" class="text-base font-bold font-fun text-white">LOBBY</div>
+            </div>
+
+            <!-- Player View Link -->
+            <a href="/" class="px-3.5 py-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-bold text-xs border border-slate-700 btn-bounce flex items-center space-x-1.5 transition-all" target="_blank">
+                <i class="fas fa-utensils"></i>
+                <span>Open Player View</span>
+            </a>
+
+            <!-- Audio / BGM Toggle -->
+            <button id="hostMuteBtn" class="w-10 h-10 rounded-xl glass-panel flex items-center justify-center text-slate-300 hover:text-white transition-colors" title="Toggle Sound / BGM">
+                <i class="fas fa-volume-up"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- MASTER CONTROL TOOLBAR & PROGRESS BAR -->
+    <div class="relative z-10 max-w-7xl mx-auto w-full px-6 py-2">
+        <div class="glass-panel p-3.5 rounded-2xl border border-white/10 flex flex-col md:flex-row items-center justify-between gap-4">
+            
+            <!-- Classroom Progress -->
+            <div class="w-full md:w-1/3 flex items-center space-x-3">
+                <div class="text-xs font-bold text-slate-300 whitespace-nowrap">
+                    Progress: <span id="hostProgressPctText" class="text-amber-400 font-fun text-sm">5%</span>
+                </div>
+                <div class="w-full bg-slate-900/80 h-3.5 rounded-full overflow-hidden border border-slate-700 p-0.5">
+                    <div id="hostOverallProgressBar" class="h-full bg-gradient-to-r from-indigo-500 via-amber-400 to-emerald-400 rounded-full transition-all duration-500" style="width: 5%"></div>
+                </div>
+            </div>
+
+            <!-- Host Action Buttons -->
+            <div class="flex flex-wrap items-center gap-2">
+                <button id="hostStartGameBtn" class="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold font-fun btn-bounce flex items-center space-x-2 shadow-lg shadow-emerald-600/30 opacity-60 transition-all">
+                    <i class="fas fa-play"></i>
+                    <span>Start Game (Waiting for Players...)</span>
+                </button>
+                <button id="hostNextStageBtn" class="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold font-fun btn-bounce flex items-center space-x-1">
+                    <span>Next Stage</span>
+                    <i class="fas fa-forward"></i>
+                </button>
+                <button id="hostRebalanceBtn" class="px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold border border-slate-700 btn-bounce">
+                    ⚖️ Auto-Balance Teams
+                </button>
+            </div>
+
+            <!-- Announcement Broadcast -->
+            <div class="flex items-center space-x-2 w-full md:w-auto">
+                <input type="text" id="hostBroadcastInput" placeholder="Broadcast alert to students..." class="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white focus:outline-none focus:border-indigo-500">
+                <button id="hostBroadcastBtn" class="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold btn-bounce">
+                    📢 Send
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN HOST DASHBOARD CONTENT -->
+    <main class="relative z-10 flex-1 max-w-7xl w-full mx-auto px-6 py-2 space-y-5">
+
+        <!-- 1. LIVE TEAM SCOREBOARDS (Alpha, Bravo, Charlie, Delta) -->
+        <div>
+            <h3 class="text-sm font-bold text-slate-300 uppercase tracking-wider mb-2.5 flex items-center justify-between">
+                <span>🏆 Team Real-Time Scoreboards</span>
+                <span class="text-xs text-slate-400 font-normal">Live aggregated points across shopping, quiz, cooking & plating</span>
+            </h3>
+            <div id="hostTeamsGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <!-- Dynamically populated team cards -->
+            </div>
+        </div>
+
+        <!-- 2. REAL-TIME CONNECTED PLAYERS MATRIX -->
+        <div class="glass-panel p-5 rounded-3xl border border-white/10">
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="text-base font-bold font-fun text-white flex items-center space-x-2">
+                    <span>📊 Real-Time Student Lobby & Progress Matrix</span>
+                    <span class="text-xs bg-indigo-500/20 text-indigo-300 px-2.5 py-0.5 rounded-full font-sans font-bold">Instant Sync</span>
+                </h3>
+            </div>
+            <!-- EXACT REQUIRED CONTAINER: player-list -->
+            <div id="player-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 max-h-72 overflow-y-auto pr-1">
+                <!-- Joined players rendered live -->
+            </div>
+            <div id="hostPlayerMatrix" class="hidden"></div>
+        </div>
+
+        <!-- 3. LIVE PLATED DISH SHOWCASE -->
+        <div class="glass-panel p-5 rounded-3xl border border-white/10">
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="text-base font-bold font-fun text-white flex items-center space-x-2">
+                    <span>🍽️ Live Plating & Food Description Showcase</span>
+                    <span class="text-xs bg-amber-500/20 text-amber-300 px-2.5 py-0.5 rounded-full font-sans font-bold">Submitted Dishes</span>
+                </h3>
+            </div>
+            <div id="hostShowcaseGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-96 overflow-y-auto pr-1">
+                <!-- Plated dish cards populated dynamically -->
+            </div>
+        </div>
+
+    </main>
+
+    <!-- DYNAMIC QR CODE MODAL -->
+    <div id="qrCodeModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden items-center justify-center p-4">
+        <div class="max-w-sm w-full glass-panel p-6 rounded-3xl border border-indigo-500/40 shadow-2xl text-center space-y-4 animate-pop relative">
+            <button onclick="document.getElementById('qrCodeModal').classList.add('hidden')" class="absolute top-4 right-4 text-slate-400 hover:text-white text-xl font-bold">
+                ✕
+            </button>
+            <h3 class="text-xl font-bold font-fun text-white">📱 Scan to Join Game</h3>
+            <p class="text-xs text-slate-300">Point phone camera to join instantly:</p>
+            
+            <div class="p-4 bg-white rounded-2xl inline-block shadow-xl mx-auto flex items-center justify-center min-w-[180px] min-h-[180px]">
+                <div id="hostQrCodeCanvas" class="flex items-center justify-center"></div>
+            </div>
+
+            <div class="text-xs text-slate-400 bg-slate-900/80 p-2.5 rounded-xl border border-slate-700">
+                <span>Direct Join URL: </span>
+                <span id="hostJoinUrl" class="text-indigo-300 font-mono text-[11px] block mt-0.5 break-all"></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Host Footer -->
+    <footer class="relative z-10 px-8 py-3 text-center text-xs text-slate-500 border-t border-slate-800">
+        <p>TungTung Restaurant Real-Time Host Dashboard • Multiplayer Educational Cooking & English Challenge</p>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="/js/sound.js"></script>
+    <script src="/js/state.js"></script>
+    <script src="/js/grammarEngine.js"></script>
+    <script>
+        const socket = io();
+        window.socket = socket;
+
+        socket.on('connect', () => {
+            console.log('Host connected to server:', socket.id);
+            socket.emit('create_room');
+        });
+
+        socket.on('room_created', (data) => {
+            console.log('Room created with PIN:', data.pin);
+            const pinEl1 = document.getElementById('room-pin-display');
+            if (pinEl1) pinEl1.innerText = data.pin;
+            const pinEl2 = document.getElementById('hostRoomPin');
+            if (pinEl2) pinEl2.innerText = data.pin;
+
+            if (window.hostDashboard) {
+                window.hostDashboard.roomCode = data.pin;
+                window.hostDashboard.generateJoinQRCode(data.pin);
+            }
+        });
+
+        socket.on('update_host_lobby', (players) => {
+            console.log('HOST RECEIVED PLAYERS:', players);
+            const container = document.getElementById('player-list');
+            const countEl = document.getElementById('player-count');
+            const hostTotal = document.getElementById('hostTotalPlayers');
+            
+            if (container) {
+                const playerList = Array.isArray(players) ? players : Object.values(players || {});
+                container.innerHTML = playerList.map(p => `
+                    <div class="p-4 bg-white text-slate-800 rounded-2xl shadow-lg border-2 border-indigo-500 text-center font-bold animate-pop">
+                        <div class="text-3xl mb-1">${(p.avatar === 'cat' ? '🐱' : (p.avatar === 'bear' ? '🐻' : (p.avatar === 'fox' ? '🦊' : (p.avatar === 'dog' ? '🐶' : (p.avatar === 'rabbit' ? '🐰' : '🐼')))))}</div>
+                        <div class="text-slate-900 font-fun text-base">${p.name || 'Anonymous'}</div>
+                        <span class="inline-block mt-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-700">${p.team || p.teamName || 'Team Alpha'}</span>
+                    </div>
+                `).join('');
+
+                if (countEl) countEl.innerText = playerList.length;
+                if (hostTotal) hostTotal.innerText = `${playerList.length} Chefs`;
+
+                // Update start game button state
+                const startBtn = document.getElementById('hostStartGameBtn');
+                if (startBtn) {
+                    if (playerList.length >= 1) {
+                        startBtn.classList.remove('opacity-60');
+                        startBtn.classList.add('animate-pulse', 'ring-2', 'ring-emerald-400');
+                        startBtn.innerHTML = `<i class="fas fa-play"></i><span>Start Game (${playerList.length} Ready)</span>`;
+                    } else {
+                        startBtn.classList.remove('ring-2', 'ring-emerald-400', 'animate-pulse');
+                        startBtn.classList.add('opacity-60');
+                        startBtn.innerHTML = `<i class="fas fa-play"></i><span>Start Game (Waiting for Players...)</span>`;
+                    }
+                }
+            }
+
+            if (window.hostDashboard) {
+                if (!window.hostDashboard.room) {
+                    window.hostDashboard.room = { code: window.hostDashboard.roomCode, players: players };
+                } else {
+                    window.hostDashboard.room.players = players;
+                    window.hostDashboard.room.totalPlayers = (Array.isArray(players) ? players.length : Object.keys(players || {}).length);
+                }
+                window.hostDashboard.renderHostUI();
+            }
+        });
+    </script>
+    <script src="/js/host.js"></script>
+</body>
+</html>

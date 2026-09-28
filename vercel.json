@@ -1,0 +1,39 @@
+{
+  "version": 2,
+  "name": "tungtung-restaurant",
+
+  "$comment": "⚠️  IMPORTANT: Vercel does NOT support persistent WebSocket connections (Socket.io). This config works for the static HTML/CSS/JS assets only. For full real-time multiplayer with Socket.io, deploy to Render.com using render.yaml. Keep this vercel.json for static CDN preview only.",
+
+  "builds": [
+    {
+      "src": "public/**",
+      "use": "@vercel/static"
+    }
+  ],
+
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "Access-Control-Allow-Credentials", "value": "true" },
+        { "key": "Access-Control-Allow-Origin",      "value": "*" },
+        { "key": "Access-Control-Allow-Methods",     "value": "GET,OPTIONS,PATCH,DELETE,POST,PUT" },
+        { "key": "Access-Control-Allow-Headers",     "value": "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization" },
+        { "key": "X-Content-Type-Options",           "value": "nosniff" },
+        { "key": "X-Frame-Options",                  "value": "DENY" }
+      ]
+    }
+  ],
+
+  "routes": [
+    { "src": "/",          "dest": "/public/index.html" },
+    { "src": "/host.html", "dest": "/public/host.html" },
+    { "src": "/(.*)",      "dest": "/public/$1" }
+  ],
+
+  "env": {
+    "PROJECT_NAME":  "TungTung Restaurant",
+    "OWNER_EMAIL":   "nananashop19911@gmail.com",
+    "NODE_ENV":      "production"
+  }
+}
