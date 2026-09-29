@@ -144,6 +144,12 @@
                 <span>Zoom QR</span>
             </button>
 
+            <!-- End Game / Reset Room Button -->
+            <button id="hostResetRoomBtn" class="px-3 py-2.5 rounded-2xl bg-rose-900/60 hover:bg-rose-800 text-rose-200 hover:text-white font-bold text-xs border border-rose-600/50 btn-bounce flex items-center space-x-1.5 transition-all" title="End active game session and generate new room PIN">
+                <i class="fas fa-power-off"></i>
+                <span>Reset Room</span>
+            </button>
+
             <!-- Audio / BGM Toggle -->
             <button id="hostMuteBtn" class="w-10 h-10 rounded-xl glass-panel flex items-center justify-center text-slate-300 hover:text-white transition-colors" title="Toggle Sound / BGM">
                 <i class="fas fa-volume-up"></i>
@@ -315,13 +321,16 @@
     <script src="/js/state.js"></script>
     <script src="/js/grammarEngine.js"></script>
     <script>
-        // Generate unique 6-digit Room PIN immediately on Host page load
-        const initialRoomPin = Math.floor(100000 + Math.random() * 900000).toString();
+        // Retrieve persistent 4-digit Room PIN or generate a fresh one
+        let initialRoomPin = localStorage.getItem('active_room_pin');
+        if (!initialRoomPin || !/^\d{4}$/.test(initialRoomPin.trim())) {
+            initialRoomPin = Math.floor(1000 + Math.random() * 9000).toString();
+            localStorage.setItem('active_room_pin', initialRoomPin);
+        }
         window.initialRoomPin = initialRoomPin;
 
         function updatePinDisplay(pin) {
             if (!pin) return;
-            window.activeRoomPin = pin;
             ['game-pin', 'pin-display', 'room-pin-display', 'hostRoomPin', 'heroPinDisplay', 'modalPinDisplay'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.innerText = pin;

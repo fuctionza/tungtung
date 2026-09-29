@@ -228,8 +228,8 @@ class TungTungApp {
         });
     }
 
-    // Player joins lobby with 6-digit PIN
-    joinLobby() {
+    // Player joins lobby with 4-digit PIN
+    async joinLobby() {
         window.sound.playClick();
         const nameInput = document.getElementById('playerNameInput');
         const roomPinInput = document.getElementById('roomPinInput');
@@ -244,8 +244,8 @@ class TungTungApp {
             return;
         }
 
-        if (!roomCode) {
-            this.showNotification('Please enter the 6-digit Room PIN shown on the Host screen!', 'error');
+        if (!roomCode || roomCode.length < 4) {
+            this.showNotification('Please enter the 4-digit Room PIN shown on the Host screen!', 'error');
             return;
         }
 
@@ -270,14 +270,13 @@ class TungTungApp {
             teamColor: assignedTeam.color,
             score: 0,
             scoreBreakdown: { shopping: 0, quiz: 0, cooking: 0, plating: 0 },
-            budgetRemaining: 150,
-            status: 'Ready in Lobby'
+            budgetRemaining: 150
         };
         this.roomCode = roomCode;
 
         // 1. Write player to Firebase Realtime Database (Primary cross-device sync)
         if (window.firebaseSync) {
-            this.firebaseController = window.firebaseSync.joinPlayerRoom(roomCode, this.player, {
+            const controller = await window.firebaseSync.joinPlayerRoom(roomCode, this.player, {
                 onStageChange: (newStage) => {
                     console.log('🔥 [Player Firebase] Stage changed to:', newStage);
                     if (newStage && newStage !== this.currentStage && newStage !== 'LOBBY') {
@@ -286,8 +285,21 @@ class TungTungApp {
                 },
                 onBroadcast: (message) => {
                     this.showNotification(`📢 Teacher: ${message}`, 'info');
+                },
+                onGameEnded: () => {
+                    this.showNotification('Game session ended by Host.', 'info');
+                    setTimeout(() => location.reload(), 2000);
+                },
+                onError: (errMsg) => {
+                    this.showNotification(errMsg, 'error');
+                    window.sound.playError();
                 }
             });
+
+            if (!controller) {
+                return;
+            }
+            this.firebaseController = controller;
         }
 
         // 2. Also emit to Socket.io if connected (hybrid fallback)
@@ -303,11 +315,11 @@ class TungTungApp {
             });
         }
 
-        // Show player waiting lobby
+        // 3. Show player waiting lobby ("Waiting for Teacher to Start")
         this.showScreen('lobbyScreen');
         this.updateLobbyUI();
         window.sound.playSuccess();
-        this.showNotification(`👨‍🍳 Welcome Chef ${name}! Waiting for host to start the challenge...`, 'success');
+        this.showNotification(`👨‍🍳 Welcome Chef ${name}! Waiting for teacher to start the challenge...`, 'success');
     }
 
     setupLocalPlayer(name, avatarId, roomCode) {

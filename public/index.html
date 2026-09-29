@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TungTung Restaurant - Host Dashboard & Projector Control</title>
-    <meta name="description" content="TungTung Restaurant Host Dashboard - Real-Time Kahoot/Blooket style classroom projector screen with 6-digit PIN, dynamic QR code, live student roster, and scoreboards.">
+    <meta name="description" content="TungTung Restaurant Host Dashboard - Real-Time Kahoot/Blooket style classroom projector screen with 4-digit PIN, dynamic QR code, live student roster, and scoreboards.">
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Font Awesome Icons -->
@@ -107,10 +107,10 @@
             <!-- ULTRA-LARGE ROOM PIN DISPLAY -->
             <div class="px-6 py-2 rounded-2xl bg-slate-900/95 border-2 border-amber-400 text-center shadow-2xl min-w-[190px] animate-pop">
                 <div class="text-[10px] text-amber-300 uppercase font-bold tracking-widest mb-0.5">ROOM PIN</div>
-                <h1 id="game-pin" class="text-3xl sm:text-4xl font-extrabold font-fun text-amber-400 tracking-wider leading-none py-1">------</h1>
-                <span id="pin-display" class="hidden">------</span>
-                <div id="room-pin-display" class="hidden">------</div>
-                <div id="hostRoomPin" class="hidden">------</div>
+                <h1 id="game-pin" class="text-3xl sm:text-4xl font-extrabold font-fun text-amber-400 tracking-wider leading-none py-1">----</h1>
+                <span id="pin-display" class="hidden">----</span>
+                <div id="room-pin-display" class="hidden">----</div>
+                <div id="hostRoomPin" class="hidden">----</div>
             </div>
 
             <!-- Connected Players Count -->
@@ -142,6 +142,12 @@
             <button onclick="document.getElementById('qrCodeModal').classList.remove('hidden')" class="px-3 py-2.5 rounded-2xl bg-indigo-600/40 hover:bg-indigo-600 text-indigo-200 hover:text-white font-bold text-xs border border-indigo-500/40 btn-bounce flex items-center space-x-1.5 transition-all" title="Zoom QR Code for Projector">
                 <i class="fas fa-qrcode"></i>
                 <span>Zoom QR</span>
+            </button>
+
+            <!-- End Game / Reset Room Button -->
+            <button id="hostResetRoomBtn" class="px-3 py-2.5 rounded-2xl bg-rose-900/60 hover:bg-rose-800 text-rose-200 hover:text-white font-bold text-xs border border-rose-600/50 btn-bounce flex items-center space-x-1.5 transition-all" title="End active game session and generate new room PIN">
+                <i class="fas fa-power-off"></i>
+                <span>Reset Room</span>
             </button>
 
             <!-- Audio / BGM Toggle -->
@@ -216,7 +222,7 @@
                 <div class="flex flex-col items-center lg:items-start space-y-4 text-center lg:text-left">
                     <div>
                         <div class="text-sm text-slate-400 font-bold uppercase tracking-widest mb-1">📱 Scan QR or Enter PIN</div>
-                        <div id="heroPinDisplay" class="pin-mega-display font-extrabold font-fun text-amber-400">------</div>
+                        <div id="heroPinDisplay" class="pin-mega-display font-extrabold font-fun text-amber-400">----</div>
                     </div>
 
                     <div class="join-url-badge px-4 py-2.5 rounded-xl text-center lg:text-left">
@@ -295,7 +301,7 @@
             </div>
 
             <div class="text-sm font-bold font-fun text-amber-400">
-                PIN: <span id="modalPinDisplay" class="text-4xl tracking-widest">------</span>
+                PIN: <span id="modalPinDisplay" class="text-4xl tracking-widest">----</span>
             </div>
 
             <div class="text-xs text-slate-400 bg-slate-900/80 p-3 rounded-xl border border-slate-700">
@@ -315,13 +321,16 @@
     <script src="/js/state.js"></script>
     <script src="/js/grammarEngine.js"></script>
     <script>
-        // Generate unique 6-digit Room PIN immediately on Host page load
-        const initialRoomPin = Math.floor(100000 + Math.random() * 900000).toString();
+        // Retrieve persistent 4-digit Room PIN or generate a fresh one
+        let initialRoomPin = localStorage.getItem('active_room_pin');
+        if (!initialRoomPin || !/^\d{4}$/.test(initialRoomPin.trim())) {
+            initialRoomPin = Math.floor(1000 + Math.random() * 9000).toString();
+            localStorage.setItem('active_room_pin', initialRoomPin);
+        }
         window.initialRoomPin = initialRoomPin;
 
         function updatePinDisplay(pin) {
             if (!pin) return;
-            window.activeRoomPin = pin;
             ['game-pin', 'pin-display', 'room-pin-display', 'hostRoomPin', 'heroPinDisplay', 'modalPinDisplay'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.innerText = pin;

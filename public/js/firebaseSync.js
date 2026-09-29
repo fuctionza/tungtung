@@ -1,7 +1,8 @@
 /**
  * TungTung Restaurant - Firebase Realtime Database Synchronization Engine
- * Handles cross-device real-time sync between Host Dashboard and Mobile Players
- * Project: tung-tung-functyion67-24246
+ * Strictly follows:
+ *   rooms/{roomPIN}/status -> "lobby" | "playing" | "ended"
+ *   rooms/{roomPIN}/players/{playerId} -> { name, avatar, teamId, score }
  */
 
 const FIREBASE_CONFIG = {
@@ -32,55 +33,54 @@ class FirebaseSyncEngine {
                 }
                 this.db = firebase.database();
                 this.isInitialized = true;
-                console.log('🔥 [FirebaseSync] Realtime Database initialized successfully:', FIREBASE_CONFIG.databaseURL);
+                console.log('🔥 [FirebaseSync] Connected to Firebase Realtime Database');
             } catch (err) {
-                console.error('⚠️ [FirebaseSync] Initialization error:', err);
+                console.error('⚠️ [FirebaseSync] Init error:', err);
             }
         } else {
-            console.warn('⚠️ [FirebaseSync] Firebase SDK not loaded in window. Retrying in 500ms...');
-            setTimeout(() => this.init(), 500);
+            setTimeout(() => this.init(), 300);
         }
     }
 
     /**
-     * Host: Initialize or register active room with 6-digit PIN
+     * Host: Initialize or retrieve active room with 4-digit PIN
      */
     initHostRoom(pin, callbacks = {}) {
         if (!this.db) {
-            console.warn('⚠️ [FirebaseSync] DB not ready yet for initHostRoom, queuing...');
-            setTimeout(() => this.initHostRoom(pin, callbacks), 500);
+            setTimeout(() => this.initHostRoom(pin, callbacks), 300);
             return null;
         }
 
         const roomRef = this.db.ref(`rooms/${pin}`);
-        
-        // Write initial room metadata
+
+        // Set or update room status to "lobby"
         roomRef.update({
+            status: 'lobby',
+            stage: 'LOBBY',
             pin: pin,
             createdAt: firebase.database.ServerValue.TIMESTAMP,
-            stage: 'LOBBY',
-            status: 'waiting',
-            overallProgress: 5,
             lastActive: firebase.database.ServerValue.TIMESTAMP
         });
 
-        // Listen for Real-Time Player joins & updates
+        // 3. Kahoot-Style Instant Sync: onValue() continuous listener on rooms/{pin}/players
         const playersRef = roomRef.child('players');
         playersRef.on('value', (snapshot) => {
             const data = snapshot.val() || {};
-            const playerList = Array.isArray(data) ? data : Object.values(data);
-            console.log(`🔥 [FirebaseSync Host] Live Players Updated (${playerList.length}):`, playerList);
+            const playerList = Object.entries(data).map(([id, p]) => ({
+                id,
+                ...p
+            }));
+            console.log(`🔥 [Host onValue Sync] ${playerList.length} player(s) in room ${pin}:`, playerList);
             if (callbacks.onPlayersUpdate) {
                 callbacks.onPlayersUpdate(playerList);
             }
         });
 
-        // Listen for Real-Time Dish Showcase Submissions
+        // Continuous listener for dish showcases
         const dishesRef = roomRef.child('dishes');
         dishesRef.on('value', (snapshot) => {
             const data = snapshot.val() || {};
-            const dishList = Array.isArray(data) ? data : Object.values(data);
-            console.log(`🔥 [FirebaseSync Host] Live Dishes Updated (${dishList.length}):`, dishList);
+            const dishList = Object.values(data);
             if (callbacks.onDishesUpdate) {
                 callbacks.onDishesUpdate(dishList);
             }
@@ -88,70 +88,93 @@ class FirebaseSyncEngine {
 
         return {
             roomRef,
-            updateStage: (stage) => {
-                roomRef.update({ stage: stage, status: 'in_game', stageChangedAt: firebase.database.ServerValue.TIMESTAMP });
+            setPlaying: () => {
+                roomRef.update({ status: 'playing', stage: 'SHOPPING', startedAt: firebase.database.ServerValue.TIMESTAMP });
+            },
+            setStage: (stage) => {
+                roomRef.update({ stage: stage, status: stage === 'PODIUM' ? 'ended' : 'playing' });
             },
             broadcast: (message) => {
                 roomRef.child('broadcast').set({ message, timestamp: firebase.database.ServerValue.TIMESTAMP });
             },
-            updateProgress: (progress) => {
-                roomRef.update({ overallProgress: progress });
+            endGame: () => {
+                roomRef.update({ status: 'ended' });
             }
         };
     }
 
     /**
-     * Player: Register student player in active room
+     * Player: Validate room existence and join with { name, avatar, teamId, score }
      */
-    joinPlayerRoom(pin, playerObj, callbacks = {}) {
+    async joinPlayerRoom(pin, playerObj, callbacks = {}) {
         if (!this.db) {
-            console.warn('⚠️ [FirebaseSync] DB not ready yet for joinPlayerRoom, queuing...');
-            setTimeout(() => this.joinPlayerRoom(pin, playerObj, callbacks), 500);
-            return null;
+            console.warn('⚠️ [FirebaseSync] DB not initialized for player join, retrying...');
+            await new Promise(r => setTimeout(r, 400));
+            return this.joinPlayerRoom(pin, playerObj, callbacks);
         }
 
         const roomRef = this.db.ref(`rooms/${pin}`);
-        const playerRef = roomRef.child(`players/${playerObj.id}`);
 
-        // Write player directly to active room PIN node
-        playerRef.set({
-            ...playerObj,
-            joinedAt: firebase.database.ServerValue.TIMESTAMP,
-            lastSeen: firebase.database.ServerValue.TIMESTAMP
-        }).then(() => {
-            console.log(`🔥 [FirebaseSync Player] Successfully joined room ${pin} as ${playerObj.name}`);
-        }).catch((err) => {
-            console.error('⚠️ [FirebaseSync Player] Join error:', err);
+        // 1. Check if rooms/{roomPIN} exists in Firebase
+        const snapshot = await roomRef.once('value');
+        const roomData = snapshot.val();
+
+        if (!roomData) {
+            console.warn(`⚠️ Room ${pin} not found in Firebase`);
+            if (callbacks.onError) callbacks.onError('Room PIN not found! Please check the Host projector screen.');
+            return null;
+        }
+
+        if (roomData.status === 'ended') {
+            if (callbacks.onError) callbacks.onError('This game session has ended.');
+            return null;
+        }
+
+        // 2. Push player data to rooms/{roomPIN}/players/{playerId}
+        const playerRef = roomRef.child(`players/${playerObj.id}`);
+        await playerRef.set({
+            name: playerObj.name,
+            avatar: playerObj.avatar,
+            teamId: playerObj.teamId || 'team-alpha',
+            team: playerObj.team || 'Team Alpha',
+            score: playerObj.score || 0,
+            joinedAt: firebase.database.ServerValue.TIMESTAMP
         });
 
-        // Auto remove or mark offline on disconnect
-        playerRef.onDisconnect().remove();
+        console.log(`🔥 [Player Join Success] ${playerObj.name} joined room ${pin}`);
 
-        // Listen for stage changes from Host (LOBBY -> SHOPPING -> QUIZ -> COOKING -> PLATING -> RESULTS)
-        roomRef.child('stage').on('value', (snapshot) => {
-            const stage = snapshot.val();
-            if (stage && callbacks.onStageChange) {
-                console.log(`🔥 [FirebaseSync Player] Room stage changed to: ${stage}`);
-                callbacks.onStageChange(stage);
+        // 3. Listen to status & stage changes in real-time
+        roomRef.on('value', (snap) => {
+            const currentRoom = snap.val();
+            if (!currentRoom) return;
+
+            if (currentRoom.status === 'playing' || currentRoom.stage) {
+                if (callbacks.onStageChange) {
+                    callbacks.onStageChange(currentRoom.stage || 'SHOPPING');
+                }
+            }
+            if (currentRoom.status === 'ended') {
+                if (callbacks.onGameEnded) {
+                    callbacks.onGameEnded();
+                }
             }
         });
 
         // Listen for teacher broadcasts
-        roomRef.child('broadcast').on('value', (snapshot) => {
-            const broadcast = snapshot.val();
-            if (broadcast && callbacks.onBroadcast) {
-                callbacks.onBroadcast(broadcast.message);
+        roomRef.child('broadcast').on('value', (snap) => {
+            const b = snap.val();
+            if (b && b.message && callbacks.onBroadcast) {
+                callbacks.onBroadcast(b.message);
             }
         });
 
         return {
             playerRef,
             roomRef,
-            updateScore: (score, scoreBreakdown) => {
+            updateScore: (score, breakdown) => {
                 playerRef.update({
                     score: score,
-                    scoreBreakdown: scoreBreakdown,
-                    lastSeen: firebase.database.ServerValue.TIMESTAMP
+                    scoreBreakdown: breakdown || null
                 });
             },
             submitDish: (dishData) => {
@@ -160,7 +183,7 @@ class FirebaseSyncEngine {
                     playerId: playerObj.id,
                     playerName: playerObj.name,
                     avatar: playerObj.avatar,
-                    team: playerObj.team || playerObj.teamName,
+                    team: playerObj.team || playerObj.teamId,
                     submittedAt: firebase.database.ServerValue.TIMESTAMP
                 });
             }
@@ -168,5 +191,5 @@ class FirebaseSyncEngine {
     }
 }
 
-// Global instance attached to window
+// Attach globally
 window.firebaseSync = new FirebaseSyncEngine();
