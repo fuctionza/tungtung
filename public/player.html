@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TungTung Restaurant - Multiplayer Educational Cooking & Grammar Game</title>
+    <meta name="description" content="TungTung Restaurant is a full-stack real-time multiplayer educational cooking and English grammar game.">
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Socket.IO Client -->
+    <script src="/socket.io/socket.io.js"></script>
+    <!-- Custom Styles -->
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="relative min-h-screen text-slate-100 flex flex-col justify-between select-none">
+    <!-- Animated Floating Blobs -->
+    <div class="bg-blobs">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+        <div class="blob blob-3"></div>
+    </div>
+
+    <!-- Canvas for Confetti -->
+    <canvas id="confettiCanvas"></canvas>
+
+    <!-- Global App Header (Student View - Strictly No Host Controls) -->
+    <header class="game-header px-6 py-4 flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+            <div class="w-11 h-11 rounded-2xl bg-gradient-to-tr from-amber-500 to-indigo-600 flex items-center justify-center text-2xl shadow-lg border border-white/20">
+                🍳
+            </div>
+            <div>
+                <h1 class="text-xl font-bold font-fun bg-gradient-to-r from-amber-400 via-rose-300 to-indigo-300 bg-clip-text text-transparent">
+                    TungTung Restaurant
+                </h1>
+                <p class="text-[11px] text-indigo-300 font-semibold tracking-wider">Educational Kitchen & Grammar Challenge</p>
+            </div>
+        </div>
+
+        <div class="flex items-center space-x-3">
+            <!-- Real-time Player Live Score HUD -->
+            <div class="px-3.5 py-1.5 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center space-x-2">
+                <span class="text-sm">⭐</span>
+                <div class="text-left">
+                    <span class="text-[9px] text-amber-200 uppercase font-bold block leading-none">Score</span>
+                    <span id="playerLiveScoreBadge" class="text-xs font-bold font-fun text-amber-400">0 pts</span>
+                </div>
+            </div>
+
+            <!-- Sound / BGM Toggle -->
+            <button id="muteBtn" class="w-10 h-10 rounded-xl glass-panel flex items-center justify-center text-slate-300 hover:text-white transition-colors" title="Toggle Sound / BGM">
+                <i class="fas fa-volume-up"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Dynamic Content Container -->
+    <main class="relative z-10 flex-1 max-w-6xl w-full mx-auto px-4 py-6 flex flex-col justify-center">
+
+        <!-- ==========================================
+             SCREEN 1: ONBOARDING & REGISTRATION
+             ========================================== -->
+        <section id="onboardingScreen" class="game-screen max-w-xl mx-auto w-full glass-panel p-8 rounded-3xl border border-white/10 shadow-2xl animate-pop">
+            <div class="text-center mb-6">
+                <span class="px-3 py-1 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                    🧑‍🍳 Chef Registration
+                </span>
+                <h2 class="text-3xl font-bold mt-2 text-white font-fun">Join TungTung Restaurant</h2>
+                <p class="text-xs text-slate-400 mt-1">Enter your Chef Name and the 4-digit PIN shown on the Host screen</p>
+
+                <div class="mt-4 p-3 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 text-center">
+                    <p class="text-xs text-indigo-300 font-semibold">📺 Look at your teacher's projector for the 4-digit Room PIN</p>
+                </div>
+            </div>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-300 mb-1.5 uppercase tracking-wider">Chef Display Name</label>
+                    <input type="text" id="playerNameInput" placeholder="e.g. Master Alex" class="w-full px-4 py-3 rounded-2xl bg-slate-900/80 border border-slate-700 text-white placeholder-slate-500 font-semibold focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 transition-all">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-300 mb-1.5 uppercase tracking-wider">🔑 4-Digit Room PIN</label>
+                    <input type="text" id="roomPinInput" placeholder="e.g. 1234" maxlength="4" autocomplete="off" class="w-full px-4 py-3 rounded-2xl bg-slate-900/80 border border-slate-700 text-white font-fun text-2xl tracking-widest text-center focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/30 transition-all">
+                    <p class="text-[10px] text-slate-500 mt-1 text-center">Type the 4-digit PIN provided by your Host / Teacher</p>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-300 mb-2 uppercase tracking-wider">Select Your Chef Avatar</label>
+                    <div id="avatarGrid" class="grid grid-cols-4 gap-2.5">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+
+                <button onclick="app.joinLobby()" class="w-full py-4 rounded-2xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-pink-500 text-white font-bold text-lg font-fun shadow-lg btn-bounce flex items-center justify-center space-x-2 mt-4">
+                    <span>Enter Kitchen Lobby</span>
+                    <i class="fas fa-arrow-right"></i>
+                </button>
+            </div>
+        </section>
+
+        <!-- ==========================================
+             SCREEN 2: WAITING ROOM / LOBBY
+             ========================================== -->
+        <section id="lobbyScreen" class="game-screen hidden space-y-6">
+            <div class="flex flex-col md:flex-row items-center justify-between glass-panel p-6 rounded-3xl border border-white/10 gap-4">
+                <div id="myPlayerBadge" class="flex items-center space-x-3">
+                    <!-- Dynamic avatar & name -->
+                </div>
+                
+                <div class="flex items-center space-x-4">
+                    <div class="px-5 py-3 rounded-2xl bg-amber-500/20 border border-amber-500/40 text-amber-300 flex items-center space-x-3 animate-pulse">
+                        <span class="text-xl">⏳</span>
+                        <div class="text-left">
+                            <div class="text-xs font-bold uppercase font-fun">Waiting for Host to Start...</div>
+                            <div class="text-[10px] text-amber-200/80">Get ready with your assigned team!</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <h3 class="text-xl font-bold text-white font-fun mb-3 flex items-center space-x-2">
+                    <span>👥 Team Assignment Roster</span>
+                    <span class="text-xs bg-indigo-500/20 text-indigo-300 px-2.5 py-0.5 rounded-full">Live Synced</span>
+                </h3>
+                <div id="lobbyTeamsContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <!-- Teams populated dynamically -->
+                </div>
+            </div>
+        </section>
+
+        <!-- ==========================================
+             SCREEN 3: SUPERMARKET SHOPPING (150 THB BUDGET)
+             ========================================== -->
+        <section id="marketScreen" class="game-screen hidden space-y-6">
+            <!-- Market Top Bar: Budget & Live Score -->
+            <div class="glass-panel p-5 rounded-3xl border border-white/10 flex flex-col md:flex-row items-center justify-between gap-4">
+                <div class="flex items-center space-x-4 w-full md:w-auto">
+                    <div class="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-3xl">
+                        💰
+                    </div>
+                    <div>
+                        <div class="text-xs text-slate-400 font-bold uppercase">Budget Remaining</div>
+                        <div id="budgetAmount" class="text-2xl font-bold font-fun text-amber-400">150 THB</div>
+                    </div>
+                </div>
+
+                <!-- Budget Bar -->
+                <div class="w-full md:w-1/3 bg-slate-900/80 h-4 rounded-full overflow-hidden border border-slate-700 p-0.5">
+                    <div id="budgetProgressBar" class="h-full bg-emerald-500 rounded-full transition-all duration-300" style="width: 100%"></div>
+                </div>
+
+                <div class="flex items-center space-x-3 w-full md:w-auto justify-end">
+                    <div class="glass-pill px-4 py-2 flex items-center space-x-2 border border-slate-700">
+                        <i class="fas fa-shopping-basket text-indigo-400"></i>
+                        <span class="text-xs font-bold text-slate-300">Cart: <strong id="cartTotalCount" class="text-white">0</strong></span>
+                    </div>
+                    <button onclick="app.proceedToCheckout()" class="px-6 py-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold font-fun text-sm btn-bounce flex items-center space-x-2 shadow-lg">
+                        <span>Checkout & Quiz</span>
+                        <i class="fas fa-cash-register"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Categories Tabs -->
+            <div class="flex flex-wrap gap-2">
+                <button class="cat-pill active px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 border border-indigo-400 text-white transition-all" data-cat="all">
+                    🌟 All Aisles
+                </button>
+                <button class="cat-pill px-4 py-2 rounded-xl text-xs font-bold glass-panel border border-slate-700 text-slate-300 hover:border-indigo-400 transition-all" data-cat="veggies">
+                    🥦 Veggies & Herbs
+                </button>
+                <button class="cat-pill px-4 py-2 rounded-xl text-xs font-bold glass-panel border border-slate-700 text-slate-300 hover:border-indigo-400 transition-all" data-cat="meats">
+                    🥩 Meats & Proteins
+                </button>
+                <button class="cat-pill px-4 py-2 rounded-xl text-xs font-bold glass-panel border border-slate-700 text-slate-300 hover:border-indigo-400 transition-all" data-cat="grains">
+                    🍚 Grains & Staples
+                </button>
+                <button class="cat-pill px-4 py-2 rounded-xl text-xs font-bold glass-panel border border-slate-700 text-slate-300 hover:border-indigo-400 transition-all" data-cat="dairy">
+                    🧀 Dairy & Eggs
+                </button>
+                <button class="cat-pill px-4 py-2 rounded-xl text-xs font-bold glass-panel border border-slate-700 text-slate-300 hover:border-indigo-400 transition-all" data-cat="sauces">
+                    🧂 Sauces & Spices
+                </button>
+                <button class="cat-pill px-4 py-2 rounded-xl text-xs font-bold glass-panel border border-slate-700 text-slate-300 hover:border-indigo-400 transition-all" data-cat="thai">
+                    🌿 Thai Local
+                </button>
+                <button class="cat-pill px-4 py-2 rounded-xl text-xs font-bold glass-panel border border-slate-700 text-slate-300 hover:border-indigo-400 transition-all" data-cat="international">
+                    🌍 International
+                </button>
+            </div>
+
+            <!-- Products Grid -->
+            <div id="marketGrid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                <!-- Market items rendered dynamically -->
+            </div>
+        </section>
+
+        <!-- ==========================================
+             MODAL: CHECKOUT GRAMMAR QUIZ CHALLENGE
+             ========================================== -->
+        <div id="checkoutQuizModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden items-center justify-center p-4">
+            <div class="max-w-md w-full glass-panel p-6 rounded-2xl border border-indigo-500/40 shadow-2xl animate-pop relative">
+                <div class="text-center mb-4">
+                    <div class="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/40 text-2xl flex items-center justify-center mx-auto mb-2">
+                        🛒
+                    </div>
+                    <span id="quizProgressText" class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                        Question 1 of 3
+                    </span>
+                    <h3 class="text-base font-bold font-fun text-white mt-1.5">Cashier Grammar Challenge</h3>
+                    <p id="quizContext" class="text-xs text-amber-300 font-semibold mt-0.5">Supermarket Checkout Aisle</p>
+                </div>
+
+                <div class="glass-panel p-4 rounded-xl border border-slate-700 bg-slate-900/70 mb-4 text-center">
+                    <p id="quizSentence" class="text-sm font-semibold text-white leading-relaxed">
+                        In your shopping basket, ______ some fresh jasmine rice.
+                    </p>
+                </div>
+
+                <div id="quizOptionsGrid" class="grid grid-cols-2 gap-2.5 mb-3">
+                    <!-- Populated dynamically with 'There is' / 'There are' options -->
+                </div>
+
+                <p class="text-[10px] text-slate-400 text-center italic">
+                    💡 Choose the correct grammar to earn bonus team points before entering the kitchen!
+                </p>
+            </div>
+        </div>
+
+        <!-- ==========================================
+             SCREEN 4: INTERACTIVE COOKING PHASE
+             ========================================== -->
+        <section id="kitchenScreen" class="game-screen hidden space-y-6">
+            <!-- Kitchen Header -->
+            <div class="glass-panel p-4 rounded-3xl border border-white/10 flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <span class="text-3xl">👨‍🍳</span>
+                    <div>
+                        <h2 class="text-xl font-bold font-fun text-white">Interactive Kitchen Board</h2>
+                        <p class="text-xs text-indigo-300">Free Cook: Chop, sauté, boil, steam, bake, pound, or grill ANY ingredient!</p>
+                    </div>
+                </div>
+
+                <button onclick="app.proceedToPlating()" class="px-6 py-3 rounded-2xl bg-gradient-to-r from-pink-600 to-rose-500 hover:from-pink-500 hover:to-rose-400 text-white font-bold font-fun text-sm btn-bounce flex items-center space-x-2 shadow-lg">
+                    <span>Proceed to Plating</span>
+                    <i class="fas fa-utensils"></i>
+                </button>
+            </div>
+
+            <!-- Station Tabs: 7 Appliances -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
+                <button class="station-tab p-2.5 rounded-2xl glass-panel border border-indigo-400 bg-indigo-600 text-center font-bold text-xs text-white btn-bounce flex flex-col items-center justify-center transition-all" data-station="cutting" onclick="app.switchStation('cutting')">
+                    <span class="text-2xl mb-1">🔪</span>
+                    <span class="leading-tight">Cutting Board</span>
+                </button>
+                <button class="station-tab p-2.5 rounded-2xl glass-panel border border-slate-700 text-center font-bold text-xs text-slate-300 btn-bounce flex flex-col items-center justify-center transition-all" data-station="pan" onclick="app.switchStation('pan')">
+                    <span class="text-2xl mb-1">🍳</span>
+                    <span class="leading-tight">Frying Pan</span>
+                </button>
+                <button class="station-tab p-2.5 rounded-2xl glass-panel border border-slate-700 text-center font-bold text-xs text-slate-300 btn-bounce flex flex-col items-center justify-center transition-all" data-station="pot" onclick="app.switchStation('pot')">
+                    <span class="text-2xl mb-1">🍲</span>
+                    <span class="leading-tight">Pot</span>
+                </button>
+                <button class="station-tab p-2.5 rounded-2xl glass-panel border border-slate-700 text-center font-bold text-xs text-slate-300 btn-bounce flex flex-col items-center justify-center transition-all" data-station="steamer" onclick="app.switchStation('steamer')">
+                    <span class="text-2xl mb-1">🫕</span>
+                    <span class="leading-tight">Steamer</span>
+                </button>
+                <button class="station-tab p-2.5 rounded-2xl glass-panel border border-slate-700 text-center font-bold text-xs text-slate-300 btn-bounce flex flex-col items-center justify-center transition-all" data-station="oven" onclick="app.switchStation('oven')">
+                    <span class="text-2xl mb-1">♨️</span>
+                    <span class="leading-tight">Oven</span>
+                </button>
+                <button class="station-tab p-2.5 rounded-2xl glass-panel border border-slate-700 text-center font-bold text-xs text-slate-300 btn-bounce flex flex-col items-center justify-center transition-all" data-station="mortar" onclick="app.switchStation('mortar')">
+                    <span class="text-2xl mb-1">🥣</span>
+                    <span class="leading-tight">Mortar & Pestle</span>
+                </button>
+                <button class="station-tab p-2.5 rounded-2xl glass-panel border border-slate-700 text-center font-bold text-xs text-slate-300 btn-bounce flex flex-col items-center justify-center transition-all" data-station="grill" onclick="app.switchStation('grill')">
+                    <span class="text-2xl mb-1">🔥</span>
+                    <span class="leading-tight">BBQ / Grill</span>
+                </button>
+            </div>
+
+            <!-- Main Kitchen Layout -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- Left: Uncooked / Prepped Ingredients -->
+                <div class="glass-panel p-4 rounded-3xl border border-white/10 flex flex-col justify-between">
+                    <div>
+                        <h4 class="text-sm font-bold font-fun text-white mb-3 flex items-center justify-between">
+                            <span>📦 Raw Ingredients</span>
+                            <span id="rawIngredientsCount" class="text-xs text-indigo-300">0 items</span>
+                        </h4>
+                        <div id="kitchenInventoryList" class="space-y-2 max-h-[380px] overflow-y-auto pr-1">
+                            <!-- Populated with purchased items -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Center: Interactive Appliance Stage -->
+                <div class="glass-panel p-6 rounded-3xl border border-white/10 flex flex-col items-center justify-center min-h-[380px] text-center relative overflow-hidden">
+                    <div id="activeStationCanvas" class="w-full h-full flex flex-col items-center justify-center">
+                        <!-- Station interactive rendering -->
+                    </div>
+                </div>
+
+                <!-- Right: Cooked Ingredients Ready for Plating -->
+                <div class="glass-panel p-4 rounded-3xl border border-white/10 flex flex-col justify-between">
+                    <div>
+                        <h4 class="text-sm font-bold font-fun text-white mb-3 flex items-center justify-between">
+                            <span>✨ Cooked Items</span>
+                            <span id="cookedIngredientsCount" class="text-xs text-emerald-400">0 ready</span>
+                        </h4>
+                        <div id="cookedItemsList" class="space-y-2 max-h-[380px] overflow-y-auto pr-1">
+                            <!-- Cooked items ready -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==========================================
+             SCREEN 5: INTERACTIVE PLATING & GRAMMAR
+             ========================================== -->
+        <section id="platingScreen" class="game-screen hidden space-y-6">
+            <div class="glass-panel p-4 rounded-3xl border border-white/10 flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <span class="text-3xl">🎨</span>
+                    <div>
+                        <h2 class="text-xl font-bold font-fun text-white">Interactive Plating & Food Description</h2>
+                        <p class="text-xs text-indigo-300">Drag, scale, and rotate cooked items and garnishes on your plate</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Left: Plating Controls & Pool -->
+                <div class="glass-panel p-5 rounded-3xl border border-white/10 space-y-4 max-h-[520px] overflow-y-auto">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-300 mb-2 uppercase">1. Plate Style</label>
+                        <div id="plateTypeSelector" class="grid grid-cols-2 gap-2">
+                            <!-- Porcelain, Slate, Wood, Gold -->
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-300 mb-1.5 uppercase">2. Add Cooked Food</label>
+                        <div id="platingIngredientsPool" class="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
+                            <!-- Cooked food buttons -->
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-emerald-300 mb-1.5 uppercase flex items-center space-x-1">
+                            <span>🌿 Extra Decorative Garnishes</span>
+                        </label>
+                        <div id="garnishesPool" class="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
+                            <!-- Garnishes -->
+                        </div>
+                    </div>
+
+                    <!-- Selected Item Transform Toolbar -->
+                    <div class="bg-slate-900/80 p-3.5 rounded-2xl border border-slate-700 space-y-2.5">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-amber-300">Selected Item Controls</span>
+                            <button onclick="app.removeSelectedItem()" class="text-red-400 hover:text-red-300 text-xs font-bold px-2 py-0.5 rounded bg-red-500/10">
+                                🗑️ Remove
+                            </button>
+                        </div>
+                        
+                        <!-- Scale / Resize -->
+                        <div class="flex items-center justify-between text-xs text-slate-300">
+                            <span>Zoom / Scale:</span>
+                            <div class="flex items-center space-x-2">
+                                <button onclick="app.zoomSelectedItem(-0.15)" class="w-6 h-6 rounded bg-slate-800 text-white font-bold flex items-center justify-center">-</button>
+                                <input type="range" id="itemScaleSlider" min="0.5" max="2.5" step="0.1" value="1.0" class="w-20 accent-indigo-500">
+                                <button onclick="app.zoomSelectedItem(0.15)" class="w-6 h-6 rounded bg-slate-800 text-white font-bold flex items-center justify-center">+</button>
+                                <span id="scaleValueDisplay" class="w-10 text-right font-mono text-[11px]">100%</span>
+                            </div>
+                        </div>
+
+                        <!-- Rotation -->
+                        <div class="flex items-center justify-between text-xs text-slate-300">
+                            <span>Rotate:</span>
+                            <div class="flex items-center space-x-2">
+                                <button onclick="app.rotateSelectedItem(-25)" class="w-6 h-6 rounded bg-slate-800 text-white text-xs flex items-center justify-center">↺</button>
+                                <input type="range" id="itemRotationSlider" min="-180" max="180" step="5" value="0" class="w-20 accent-indigo-500">
+                                <button onclick="app.rotateSelectedItem(25)" class="w-6 h-6 rounded bg-slate-800 text-white text-xs flex items-center justify-center">↻</button>
+                                <span id="rotValueDisplay" class="w-10 text-right font-mono text-[11px]">0°</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Center: Interactive Plating Canvas -->
+                <div class="glass-panel p-6 rounded-3xl border border-white/10 flex flex-col items-center justify-center min-h-[380px]">
+                    <div id="plateCanvas" class="plate-base plate-porcelain flex items-center justify-center relative">
+                        <!-- Plated items draggable, scalable, rotatable -->
+                    </div>
+                    <div class="text-center mt-3">
+                        <span class="text-xs text-slate-400 block">✨ Click & drag items to move • Use zoom/rotation sliders to style</span>
+                    </div>
+                </div>
+
+                <!-- Right: Dish Naming & Grammar Description -->
+                <div class="glass-panel p-5 rounded-3xl border border-white/10 space-y-4 flex flex-col justify-between">
+                    <div class="space-y-3">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-300 mb-1.5 uppercase">3. Dish Name</label>
+                            <input type="text" id="dishTitleInput" placeholder="e.g. Royal Jasmine Stir-Fry Supreme" class="w-full px-4 py-2.5 rounded-xl bg-slate-900/80 border border-slate-700 text-white font-fun focus:outline-none focus:border-indigo-500 text-sm">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold text-slate-300 mb-1.5 uppercase">
+                                4. English Grammar Description
+                                <span class="text-[11px] text-indigo-400 font-normal block">Use "There is" (singular/uncountable) & "There are" (plural)</span>
+                            </label>
+                            <textarea id="dishDescriptionInput" rows="3" placeholder="e.g. There is some steamed jasmine rice on the plate and there are three slices of tender chicken." class="w-full px-4 py-2.5 rounded-xl bg-slate-900/80 border border-slate-700 text-white text-xs leading-relaxed focus:outline-none focus:border-indigo-500"></textarea>
+                        </div>
+
+                        <!-- Real-time Grammar Feedback -->
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-400 mb-1">Live Grammar Assistant</label>
+                            <div id="grammarFeedbackBox" class="space-y-1">
+                                <div class="text-xs p-2 rounded-lg bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
+                                    💡 Type your description above. Use "There is" for singular/uncountable and "There are" for plurals!
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button onclick="app.submitFinalDish()" class="w-full py-3.5 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-500 to-indigo-600 text-white font-bold font-fun text-base btn-bounce shadow-xl flex items-center justify-center space-x-2">
+                        <span>✨ Submit Culinary Masterpiece</span>
+                        <i class="fas fa-check-circle"></i>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==========================================
+             SCREEN 6: FINAL EVALUATION & SCORE BREAKDOWN
+             ========================================== -->
+        <section id="evaluationScreen" class="game-screen hidden max-w-2xl mx-auto w-full glass-panel p-8 rounded-3xl border border-white/10 shadow-2xl text-center space-y-6 animate-pop">
+            <div>
+                <span class="px-4 py-1.5 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                    🏆 Evaluation Complete
+                </span>
+                <h2 class="text-3xl font-bold font-fun text-white mt-2">Chef Performance Report</h2>
+                <div id="finalDishSummary" class="mt-2 glass-panel p-4 rounded-2xl border border-slate-700">
+                    <!-- Dish title & description -->
+                </div>
+            </div>
+
+            <!-- Big Score & Grade -->
+            <div class="flex items-center justify-center space-x-8">
+                <div>
+                    <div class="text-xs text-slate-400 font-bold uppercase">Total Score</div>
+                    <div id="finalTotalScore" class="text-6xl font-bold font-fun bg-gradient-to-r from-amber-400 to-rose-400 bg-clip-text text-transparent">95</div>
+                    <span class="text-xs text-slate-400">/ 100 Points</span>
+                </div>
+                <div class="h-16 w-px bg-slate-700"></div>
+                <div>
+                    <div class="text-xs text-slate-400 font-bold uppercase">Culinary Grade</div>
+                    <div id="finalGradeBadge" class="text-2xl font-bold font-fun text-emerald-400 mt-2">S - Master Chef</div>
+                </div>
+            </div>
+
+            <!-- 4 Weighted Metrics Breakdown -->
+            <div class="space-y-2.5 text-left">
+                <h4 class="text-xs font-bold text-slate-300 uppercase tracking-wider">Weighted Evaluation Metrics</h4>
+                <div id="scoreBreakdownList" class="space-y-2">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+
+            <div class="flex items-center justify-center space-x-4 pt-4 border-t border-slate-700">
+                <button onclick="location.reload()" class="px-6 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold font-fun text-sm btn-bounce">
+                    🔄 Cook Again
+                </button>
+                <button onclick="location.href='/join'" class="px-6 py-3 rounded-2xl glass-panel border border-slate-700 text-slate-300 hover:text-white font-bold font-fun text-sm btn-bounce">
+                    🏠 Back to Lobby
+                </button>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Global Footer -->
+    <footer class="relative z-10 px-6 py-4 text-center text-xs text-slate-500 border-t border-slate-800">
+        <p>TungTung Restaurant • Real-Time Educational English & Cooking Game</p>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="/js/sound.js"></script>
+    <script src="/js/state.js"></script>
+    <script src="/js/grammarEngine.js"></script>
+    <script src="/js/app.js"></script>
+</body>
+</html>

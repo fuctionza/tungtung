@@ -33,14 +33,13 @@ class HostDashboard {
         }
     }
 
-    /** Generate and render QR Code — uses window.location.origin so remote players scan live public domain */
+    /** Generate and render QR Code — uses /join route for mobile-friendly player entry */
     async generateJoinQRCode(roomPin) {
         const qrContainer = document.getElementById('hostQrCodeCanvas');
-        if (!qrContainer) return;
-        qrContainer.innerHTML = '';
+        const modalQrContainer = document.getElementById('modalQrCodeCanvas');
 
-        // Default to live public origin (window.location.origin)
-        let hostUrl = `${window.location.origin}/?pin=${roomPin}`;
+        // Build join URL using /join route
+        let hostUrl = `${window.location.origin}/join?pin=${roomPin}`;
 
         // When developing on localhost, attempt to fetch LAN IP or custom PUBLIC_URL from /api/server-info
         if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
@@ -49,33 +48,75 @@ class HostDashboard {
                 const info = await res.json();
                 const base = info.publicUrl || info.networkUrl;
                 if (base) {
-                    hostUrl = `${base.replace(/\/$/, '')}/?pin=${roomPin}`;
+                    hostUrl = `${base.replace(/\/$/, '')}/join?pin=${roomPin}`;
                 }
             } catch (err) {
                 // Silently fallback to window.location.origin
             }
         }
 
-        const joinUrlDisplay = document.getElementById('hostJoinUrl');
-        if (joinUrlDisplay) {
-            joinUrlDisplay.textContent = hostUrl;
+        // Update all join URL displays
+        ['hostJoinUrl', 'modalJoinUrl'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = hostUrl;
+        });
+
+        // Render QR in hero section
+        this._renderQR(qrContainer, hostUrl, roomPin, 180);
+        // Render QR in fullscreen modal (larger)
+        this._renderQR(modalQrContainer, hostUrl, roomPin, 240);
+
+        // Also try server-side QR for higher quality
+        this._fetchServerQR(roomPin);
+    }
+
+    /** Fetch server-generated QR code (higher quality, works even if QRCode lib fails) */
+    async _fetchServerQR(roomPin) {
+        try {
+            const res = await fetch(`/api/qrcode/${roomPin}`);
+            if (res.ok) {
+                const data = await res.json();
+                // Only replace if we got a valid data URL
+                if (data.qrDataUrl) {
+                    const qrContainer = document.getElementById('hostQrCodeCanvas');
+                    const modalQrContainer = document.getElementById('modalQrCodeCanvas');
+                    if (qrContainer) {
+                        qrContainer.innerHTML = `<img src="${data.qrDataUrl}" alt="QR Code to join room ${roomPin}" style="width:180px;height:180px;border-radius:8px;">`;
+                    }
+                    if (modalQrContainer) {
+                        modalQrContainer.innerHTML = `<img src="${data.qrDataUrl}" alt="QR Code to join room ${roomPin}" style="width:240px;height:240px;border-radius:8px;">`;
+                    }
+                    ['hostJoinUrl', 'modalJoinUrl'].forEach(id => {
+                        const el = document.getElementById(id);
+                        if (el) el.textContent = data.joinUrl;
+                    });
+                }
+            }
+        } catch (err) {
+            // Server QR is optional; client-side QRCode.js is already rendered
         }
+    }
+
+    /** Render QR code into a container using QRCode.js */
+    _renderQR(container, url, pin, size) {
+        if (!container) return;
+        container.innerHTML = '';
 
         if (typeof QRCode !== 'undefined') {
             try {
-                this.qrCodeObj = new QRCode(qrContainer, {
-                    text: hostUrl,
-                    width: 160,
-                    height: 160,
+                new QRCode(container, {
+                    text: url,
+                    width: size,
+                    height: size,
                     colorDark: '#0F172A',
                     colorLight: '#FFFFFF',
                     correctLevel: QRCode.CorrectLevel.M
                 });
             } catch (e) {
-                this._renderQrFallback(qrContainer, hostUrl, roomPin);
+                this._renderQrFallback(container, url, pin);
             }
         } else {
-            this._renderQrFallback(qrContainer, hostUrl, roomPin);
+            this._renderQrFallback(container, url, pin);
         }
     }
 

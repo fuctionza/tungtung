@@ -39,13 +39,61 @@ jobs:
 
       - name: Validate public HTML files exist
         run: |
-          test -f public/index.html  && echo "✅ index.html OK"   || (echo "❌ index.html missing" && exit 1)
+          test -f public/index.html  && echo "✅ index.html OK"   || echo "⚠️  index.html not found (optional)"
           test -f public/host.html   && echo "✅ host.html OK"    || (echo "❌ host.html missing"  && exit 1)
+          test -f public/player.html && echo "✅ player.html OK"  || (echo "❌ player.html missing" && exit 1)
           test -f public/js/app.js   && echo "✅ app.js OK"       || (echo "❌ app.js missing"     && exit 1)
           test -f public/js/host.js  && echo "✅ host.js OK"      || (echo "❌ host.js missing"    && exit 1)
 
+      - name: Validate firebase.json
+        run: |
+          node -e "
+            const config = require('./firebase.json');
+            const rewrites = config.hosting.rewrites;
+            const hasJoin = rewrites.some(r => r.source === '/join');
+            const hasRoot = rewrites.some(r => r.source === '/');
+            if (!hasJoin) { console.error('❌ /join route missing in firebase.json'); process.exit(1); }
+            if (!hasRoot) { console.error('❌ / route missing in firebase.json'); process.exit(1); }
+            console.log('✅ firebase.json routing validated: / → host.html, /join → player.html');
+          "
+
   # ─────────────────────────────────────────
-  # 2. Deploy to Render (production)
+  # 2. Deploy to Firebase Hosting
+  #    Set FIREBASE_SERVICE_ACCOUNT in GitHub Secrets:
+  #      Repository → Settings → Secrets → Actions
+  #      Name: FIREBASE_SERVICE_ACCOUNT
+  #      Value: (paste your Firebase service account JSON)
+  #    Or use FIREBASE_TOKEN for legacy auth
+  # ─────────────────────────────────────────
+  deploy-firebase:
+    name: Deploy to Firebase Hosting
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') && github.event_name == 'push'
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Deploy to Firebase Hosting
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          channelId: live
+          projectId: tung-tung-functyion67-24246
+
+  # ─────────────────────────────────────────
+  # 3. Deploy to Render (production backend)
   #    Trigger via Render Deploy Hook URL
   #    Set RENDER_DEPLOY_HOOK_URL in GitHub Secrets:
   #      Repository → Settings → Secrets → Actions
@@ -77,13 +125,13 @@ jobs:
 
       - name: Deployment Summary
         run: |
-          echo "=================================================="
-          echo "🎮 ${{ env.PROJECT_NAME }}"
+          echo "══════════════════════════════════════════════════════"
+          echo "🎮 ${{ env.PROJECT_NAME }} — Deployment Complete"
           echo "👤 Owner: ${{ env.OWNER_EMAIL }}"
           echo "🌿 Branch: ${{ github.ref_name }}"
           echo "📦 Commit: ${{ github.sha }}"
-          echo "=================================================="
-          echo "📺 Host Dashboard : https://<your-render-app>.onrender.com/host.html"
-          echo "🧑‍🍳 Player Screen : https://<your-render-app>.onrender.com/"
-          echo "🏥 Health Check  : https://<your-render-app>.onrender.com/api/health"
-          echo "=================================================="
+          echo "══════════════════════════════════════════════════════"
+          echo "📺 Host Dashboard : https://tung-tung-functyion67-24246.web.app/"
+          echo "🧑‍🍳 Player Join    : https://tung-tung-functyion67-24246.web.app/join"
+          echo "🏥 Health Check   : (Render backend) /api/health"
+          echo "══════════════════════════════════════════════════════"

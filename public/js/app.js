@@ -57,11 +57,27 @@ class TungTungApp {
     }
 
     // Pre-fill room code from URL param (QR scan redirect)
+    // Supports: /join?pin=1234, /player.html?pin=1234, /play?pin=1234, /join/1234
     checkUrlParams() {
         const urlParams = new URLSearchParams(window.location.search);
-        const pin = urlParams.get('pin');
+        let pin = urlParams.get('pin');
+
+        // Also check for /join/:pin path pattern
+        if (!pin) {
+            const pathMatch = window.location.pathname.match(/\/join\/(\d{4})$/);
+            if (pathMatch) pin = pathMatch[1];
+        }
+
         if (pin && pin.trim()) {
             this.setRoomCode(pin.trim());
+            // Auto-focus name input since PIN is already filled
+            setTimeout(() => {
+                const nameInput = document.getElementById('playerNameInput');
+                if (nameInput) {
+                    nameInput.focus();
+                    nameInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }, 300);
         }
         // Players do NOT auto-generate codes — only the Host creates the room code.
     }
@@ -77,7 +93,14 @@ class TungTungApp {
 
     initSocket() {
         if (typeof io !== 'undefined') {
-            this.socket = window.socket || io(window.location.origin);
+            this.socket = window.socket || io(window.location.origin, {
+                transports: ['websocket', 'polling'],
+                reconnection: true,
+                reconnectionAttempts: Infinity,
+                reconnectionDelay: 1000,
+                reconnectionDelayMax: 5000,
+                timeout: 20000
+            });
             window.socket = this.socket;
 
             this.socket.on('connect', () => {

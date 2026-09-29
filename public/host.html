@@ -15,6 +15,66 @@
     <script src="/socket.io/socket.io.js"></script>
     <!-- Custom Styles -->
     <link rel="stylesheet" href="/css/style.css">
+    <style>
+        /* Host Dashboard — Prominent QR & PIN Hero Section */
+        .qr-hero-section {
+            background: linear-gradient(135deg, rgba(99,102,241,0.12) 0%, rgba(236,72,153,0.08) 50%, rgba(16,185,129,0.06) 100%);
+            border: 2px solid rgba(99,102,241,0.25);
+            position: relative;
+            overflow: hidden;
+        }
+        .qr-hero-section::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -30%;
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, rgba(99,102,241,0.15) 0%, transparent 70%);
+            pointer-events: none;
+        }
+        .qr-code-container {
+            background: white;
+            border-radius: 20px;
+            padding: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3), 0 0 0 4px rgba(99,102,241,0.3);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .qr-code-container:hover {
+            transform: scale(1.03);
+            box-shadow: 0 12px 40px rgba(0,0,0,0.4), 0 0 0 4px rgba(99,102,241,0.5);
+        }
+        .pin-mega-display {
+            font-size: 4.5rem;
+            letter-spacing: 0.35em;
+            line-height: 1;
+            text-shadow: 0 4px 20px rgba(245,158,11,0.4);
+        }
+        .join-url-badge {
+            background: rgba(15,23,42,0.9);
+            border: 1px solid rgba(99,102,241,0.3);
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+        }
+        @keyframes qrPulseGlow {
+            0%, 100% { box-shadow: 0 8px 32px rgba(0,0,0,0.3), 0 0 0 4px rgba(99,102,241,0.3); }
+            50% { box-shadow: 0 8px 32px rgba(0,0,0,0.3), 0 0 0 6px rgba(99,102,241,0.5), 0 0 30px rgba(99,102,241,0.2); }
+        }
+        .qr-code-container.waiting {
+            animation: qrPulseGlow 2s ease-in-out infinite;
+        }
+        .live-dot {
+            width: 8px;
+            height: 8px;
+            background: #10B981;
+            border-radius: 50%;
+            display: inline-block;
+            animation: livePulse 1.5s ease-in-out infinite;
+        }
+        @keyframes livePulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.3); }
+        }
+    </style>
 </head>
 <body class="relative min-h-screen text-slate-100 flex flex-col justify-between select-none">
     <!-- Floating Blobs Background -->
@@ -49,12 +109,6 @@
                 <div id="hostRoomPin" class="hidden">----</div>
             </div>
 
-            <!-- Dynamic QR Code Modal Button -->
-            <button onclick="document.getElementById('qrCodeModal').classList.remove('hidden')" class="px-4 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs btn-bounce flex items-center space-x-1.5 shadow-lg">
-                <i class="fas fa-qrcode text-base"></i>
-                <span>Scan QR</span>
-            </button>
-
             <!-- Connected Players Count -->
             <div class="px-3.5 py-2 rounded-2xl bg-slate-900/90 border border-slate-700 text-center shadow-inner">
                 <div class="text-[9px] text-slate-400 uppercase font-bold tracking-widest">Chefs</div>
@@ -75,7 +129,7 @@
             </div>
 
             <!-- Player View Link -->
-            <a href="/" class="px-3.5 py-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-bold text-xs border border-slate-700 btn-bounce flex items-center space-x-1.5 transition-all" target="_blank">
+            <a href="/join" class="px-3.5 py-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-bold text-xs border border-slate-700 btn-bounce flex items-center space-x-1.5 transition-all" target="_blank">
                 <i class="fas fa-utensils"></i>
                 <span>Open Player View</span>
             </a>
@@ -129,6 +183,53 @@
     <!-- MAIN HOST DASHBOARD CONTENT -->
     <main class="relative z-10 flex-1 max-w-7xl w-full mx-auto px-6 py-2 space-y-5">
 
+        <!-- ═══════════════════════════════════════════════════
+             PROMINENT QR CODE + ROOM CODE HERO SECTION
+             Displayed directly on the main host screen
+             ═══════════════════════════════════════════════════ -->
+        <div id="qrHeroSection" class="qr-hero-section glass-panel p-6 rounded-3xl animate-pop">
+            <div class="flex flex-col lg:flex-row items-center justify-center gap-8">
+                
+                <!-- QR Code Display (Always Visible) -->
+                <div class="flex flex-col items-center space-y-3">
+                    <div class="flex items-center space-x-2 mb-1">
+                        <span class="live-dot"></span>
+                        <span class="text-xs font-bold text-emerald-400 uppercase tracking-wider">Live QR Code</span>
+                    </div>
+                    <div id="hostQrCodeCanvas" class="qr-code-container waiting flex items-center justify-center" style="min-width:200px;min-height:200px;">
+                        <!-- QR Code rendered here dynamically -->
+                    </div>
+                    <p class="text-[11px] text-slate-400 text-center max-w-[220px]">Students: point your phone camera at this QR code to join instantly</p>
+                </div>
+
+                <!-- Room PIN + Join Info -->
+                <div class="flex flex-col items-center lg:items-start space-y-4 text-center lg:text-left">
+                    <div>
+                        <div class="text-sm text-slate-400 font-bold uppercase tracking-widest mb-1">📱 Scan QR or Enter PIN</div>
+                        <div id="heroPinDisplay" class="pin-mega-display font-extrabold font-fun text-amber-400">----</div>
+                    </div>
+
+                    <div class="join-url-badge px-4 py-2.5 rounded-xl text-center lg:text-left">
+                        <div class="text-[10px] text-slate-500 uppercase font-bold tracking-wider mb-0.5">Student Join URL</div>
+                        <span id="hostJoinUrl" class="text-indigo-300 text-xs break-all"></span>
+                    </div>
+
+                    <div class="flex flex-wrap gap-2 mt-1">
+                        <div class="px-3 py-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-[11px] font-bold flex items-center space-x-1.5">
+                            <i class="fas fa-wifi"></i>
+                            <span>Works on any network</span>
+                        </div>
+                        <div class="px-3 py-1.5 rounded-lg bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 text-[11px] font-bold flex items-center space-x-1.5">
+                            <i class="fas fa-mobile-alt"></i>
+                            <span>Mobile optimized</span>
+                        </div>
+                    </div>
+
+                    <p class="text-xs text-slate-500 max-w-sm">Students join from <strong class="text-slate-300">any device & any WiFi/mobile network</strong>. The QR code links directly to the player onboarding page.</p>
+                </div>
+            </div>
+        </div>
+
         <!-- 1. LIVE TEAM SCOREBOARDS (Alpha, Bravo, Charlie, Delta) -->
         <div>
             <h3 class="text-sm font-bold text-slate-300 uppercase tracking-wider mb-2.5 flex items-center justify-between">
@@ -170,22 +271,26 @@
 
     </main>
 
-    <!-- DYNAMIC QR CODE MODAL -->
-    <div id="qrCodeModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden items-center justify-center p-4">
-        <div class="max-w-sm w-full glass-panel p-6 rounded-3xl border border-indigo-500/40 shadow-2xl text-center space-y-4 animate-pop relative">
+    <!-- FULLSCREEN QR CODE MODAL (Projector Zoom) -->
+    <div id="qrCodeModal" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md hidden flex items-center justify-center p-4">
+        <div class="max-w-lg w-full glass-panel p-8 rounded-3xl border border-indigo-500/40 shadow-2xl text-center space-y-5 animate-pop relative">
             <button onclick="document.getElementById('qrCodeModal').classList.add('hidden')" class="absolute top-4 right-4 text-slate-400 hover:text-white text-xl font-bold">
                 ✕
             </button>
-            <h3 class="text-xl font-bold font-fun text-white">📱 Scan to Join Game</h3>
-            <p class="text-xs text-slate-300">Point phone camera to join instantly:</p>
+            <h3 class="text-2xl font-bold font-fun text-white">📱 Scan to Join Game</h3>
+            <p class="text-sm text-slate-300">Point your phone camera at the QR code:</p>
             
-            <div class="p-4 bg-white rounded-2xl inline-block shadow-xl mx-auto flex items-center justify-center min-w-[180px] min-h-[180px]">
-                <div id="hostQrCodeCanvas" class="flex items-center justify-center"></div>
+            <div class="p-5 bg-white rounded-2xl inline-block shadow-xl mx-auto">
+                <div id="modalQrCodeCanvas" class="flex items-center justify-center" style="min-width:240px;min-height:240px;"></div>
             </div>
 
-            <div class="text-xs text-slate-400 bg-slate-900/80 p-2.5 rounded-xl border border-slate-700">
+            <div class="text-sm font-bold font-fun text-amber-400">
+                PIN: <span id="modalPinDisplay" class="text-4xl tracking-widest">----</span>
+            </div>
+
+            <div class="text-xs text-slate-400 bg-slate-900/80 p-3 rounded-xl border border-slate-700">
                 <span>Direct Join URL: </span>
-                <span id="hostJoinUrl" class="text-indigo-300 font-mono text-[11px] block mt-0.5 break-all"></span>
+                <span id="modalJoinUrl" class="text-indigo-300 font-mono text-[11px] block mt-0.5 break-all"></span>
             </div>
         </div>
     </div>
@@ -200,12 +305,19 @@
     <script src="/js/state.js"></script>
     <script src="/js/grammarEngine.js"></script>
     <script>
-        const socket = io(window.location.origin);
+        const socket = io(window.location.origin, {
+            transports: ['websocket', 'polling'],
+            reconnection: true,
+            reconnectionAttempts: Infinity,
+            reconnectionDelay: 1000,
+            reconnectionDelayMax: 5000,
+            timeout: 20000
+        });
         window.socket = socket;
 
         function updatePinDisplay(pin) {
             if (!pin) return;
-            ['game-pin', 'pin-display', 'room-pin-display', 'hostRoomPin'].forEach(id => {
+            ['game-pin', 'pin-display', 'room-pin-display', 'hostRoomPin', 'heroPinDisplay', 'modalPinDisplay'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.innerText = pin;
             });
@@ -261,6 +373,12 @@
                         startBtn.classList.add('opacity-60');
                         startBtn.innerHTML = `<i class="fas fa-play"></i><span>Start Game (Waiting for Players...)</span>`;
                     }
+                }
+
+                // Collapse QR hero section once players join (but keep it accessible)
+                const qrHero = document.getElementById('qrHeroSection');
+                if (qrHero && playerList.length >= 1) {
+                    qrHero.querySelector('.qr-code-container')?.classList.remove('waiting');
                 }
             }
 

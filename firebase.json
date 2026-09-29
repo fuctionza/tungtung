@@ -5,6 +5,78 @@
       "firebase.json",
       "**/.*",
       "**/node_modules/**"
-    ]
+    ],
+    "headers": [
+      {
+        "source": "**",
+        "headers": [
+          {
+            "key": "Access-Control-Allow-Origin",
+            "value": "*"
+          },
+          {
+            "key": "Access-Control-Allow-Methods",
+            "value": "GET, POST, OPTIONS"
+          },
+          {
+            "key": "Access-Control-Allow-Headers",
+            "value": "Content-Type, Authorization"
+          },
+          {
+            "key": "X-Frame-Options",
+            "value": "SAMEORIGIN"
+          }
+        ]
+      },
+      {
+        "source": "/socket.io/**",
+        "headers": [
+          {
+            "key": "Access-Control-Allow-Origin",
+            "value": "*"
+          },
+          {
+            "key": "Access-Control-Allow-Methods",
+            "value": "GET, POST, OPTIONS"
+          },
+          {
+            "key": "Access-Control-Allow-Headers",
+            "value": "Content-Type"
+          },
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, no-store"
+          }
+        ]
+      }
+    ],
+    "rewrites": [
+      {
+        "source": "/join",
+        "destination": "/player.html"
+      },
+      {
+        "source": "/join/**",
+        "destination": "/player.html"
+      },
+      {
+        "source": "/play",
+        "destination": "/player.html"
+      },
+      {
+        "source": "/player",
+        "destination": "/player.html"
+      },
+      {
+        "source": "/host",
+        "destination": "/host.html"
+      },
+      {
+        "source": "/",
+        "destination": "/host.html"
+      }
+    ],
+    "cleanUrls": true,
+    "trailingSlash": false
   }
 }

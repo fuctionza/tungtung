@@ -119,17 +119,43 @@ function sanitizeRoom(pin) {
     };
 }
 
-// Serve Static Frontend Assets
-app.use(express.static(path.join(__dirname, 'public')));
+// ══════════════════════════════════════════════════════════════
+// Dual-Route Architecture
+// ── ROOT (/)       → Host / Teacher Dashboard (main domain)
+// ── /join          → Player / Student Mobile-Friendly Entry
+// ══════════════════════════════════════════════════════════════
 
-// Explicit View Routes
+// HOST routes (primary domain root)
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    res.sendFile(path.join(__dirname, 'public', 'host.html'));
 });
-
+app.get('/host', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'host.html'));
+});
 app.get('/host.html', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'host.html'));
 });
+
+// PLAYER routes (mobile-friendly student entry)
+app.get('/join', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'player.html'));
+});
+app.get('/join/:pin', (req, res) => {
+    // Deep-link: /join/1234 → player.html?pin=1234
+    res.redirect(`/player.html?pin=${encodeURIComponent(req.params.pin)}`);
+});
+app.get('/player', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'player.html'));
+});
+app.get('/player.html', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'player.html'));
+});
+app.get('/play', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'player.html'));
+});
+
+// Serve Static Frontend Assets
+app.use(express.static(path.join(__dirname, 'public')));
 
 // REST Health Check & Server Info
 app.get('/api/health', (req, res) => {
@@ -170,6 +196,26 @@ app.get('/api/room/:pin', (req, res) => {
     const room = rooms[pin];
     if (!room) return res.status(404).json({ error: 'Room not found' });
     res.json(sanitizeRoom(pin));
+});
+
+// Server-Side QR Code Generation API
+// Returns a QR code as a data URL for the host dashboard
+const QRCode = require('qrcode');
+app.get('/api/qrcode/:pin', async (req, res) => {
+    const pin = (req.params.pin || '').trim();
+    const baseUrl = PUBLIC_URL || `${req.protocol}://${req.get('host')}`;
+    const joinUrl = `${baseUrl}/join?pin=${pin}`;
+    try {
+        const qrDataUrl = await QRCode.toDataURL(joinUrl, {
+            width: 320,
+            margin: 2,
+            color: { dark: '#0F172A', light: '#FFFFFF' },
+            errorCorrectionLevel: 'M'
+        });
+        res.json({ qrDataUrl, joinUrl, pin });
+    } catch (err) {
+        res.status(500).json({ error: 'QR generation failed', message: err.message });
+    }
 });
 
 // ==============================================================================
@@ -482,9 +528,14 @@ io.on('connection', (socket) => {
 // Start Server
 // ==============================================================================
 server.listen(PORT, HOST, () => {
-    console.log('====================================================');
+    console.log('════════════════════════════════════════════════════════');
     console.log(`🚀 TungTung Restaurant Server running on port ${PORT}`);
-    console.log(`🧑‍🍳 Player Screen : http://localhost:${PORT}/`);
-    console.log(`📺 Host Dashboard : http://localhost:${PORT}/host.html`);
-    console.log('====================================================');
+    console.log(`📺 Host Dashboard : http://localhost:${PORT}/`);
+    console.log(`🧑‍🍳 Player Join   : http://localhost:${PORT}/join`);
+    console.log(`🏥 Health Check   : http://localhost:${PORT}/api/health`);
+    if (PUBLIC_URL) {
+        console.log(`🌐 Public URL     : ${PUBLIC_URL}`);
+        console.log(`📱 Student QR URL : ${PUBLIC_URL}/join`);
+    }
+    console.log('════════════════════════════════════════════════════════');
 });
