@@ -57,14 +57,14 @@ class TungTungApp {
     }
 
     // Pre-fill room code from URL param (QR scan redirect)
-    // Supports: /join?pin=1234, /player.html?pin=1234, /play?pin=1234, /join/1234
+    // Supports: /join?pin=482910, /player.html?pin=482910, /play?pin=482910, /join/482910
     checkUrlParams() {
         const urlParams = new URLSearchParams(window.location.search);
         let pin = urlParams.get('pin');
 
-        // Also check for /join/:pin path pattern
+        // Also check for /join/:pin path pattern (4-6 digits)
         if (!pin) {
-            const pathMatch = window.location.pathname.match(/\/join\/(\d{4})$/);
+            const pathMatch = window.location.pathname.match(/\/join\/(\d{4,6})$/);
             if (pathMatch) pin = pathMatch[1];
         }
 
@@ -79,7 +79,6 @@ class TungTungApp {
                 }
             }, 300);
         }
-        // Players do NOT auto-generate codes — only the Host creates the room code.
     }
 
     setRoomCode(code) {
@@ -229,7 +228,7 @@ class TungTungApp {
         });
     }
 
-    // Player joins lobby with 4-digit PIN
+    // Player joins lobby with 6-digit PIN
     joinLobby() {
         window.sound.playClick();
         const nameInput = document.getElementById('playerNameInput');
@@ -237,7 +236,7 @@ class TungTungApp {
         const selectedAvatar = document.querySelector('.avatar-card.selected');
 
         const name = nameInput ? nameInput.value.trim() : 'Chef Panda';
-        const roomCode = roomPinInput ? roomPinInput.value.trim() : '1234';
+        const roomCode = roomPinInput ? roomPinInput.value.trim() : '';
         const avatarId = selectedAvatar ? selectedAvatar.dataset.id : 'panda';
 
         if (!name) {
@@ -245,41 +244,74 @@ class TungTungApp {
             return;
         }
 
-        if (this.socket && this.socket.connected) {
-            this.socket.emit('join_room', { pin: roomCode, roomCode, name, teamName: name, avatar: avatarId }, (res) => {
-                if (res && res.success) {
-                    this.player = res.player;
-                    this.room = res.room;
-                    this.roomCode = res.pin || res.roomCode;
-                    this.showScreen('lobbyScreen');
-                    this.updateLobbyUI();
-                    window.sound.playSuccess();
-                } else if (res && !res.success) {
-                    this.showNotification(res.message || 'Invalid Room PIN! Please check Host screen.', 'error');
-                    window.sound.playError();
+        if (!roomCode) {
+            this.showNotification('Please enter the 6-digit Room PIN shown on the Host screen!', 'error');
+            return;
+        }
+
+        // Automatic load-balanced team assignment
+        const teamConfigs = [
+            { id: 'team-alpha', name: 'Team Alpha', color: '#EF4444' },
+            { id: 'team-bravo', name: 'Team Bravo', color: '#3B82F6' },
+            { id: 'team-charlie', name: 'Team Charlie', color: '#10B981' },
+            { id: 'team-delta', name: 'Team Delta', color: '#F59E0B' }
+        ];
+        const assignedTeam = teamConfigs[Math.floor(Math.random() * teamConfigs.length)];
+
+        // Generate unique persistent player ID for session
+        const playerId = 'p_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+
+        this.player = {
+            id: playerId,
+            name: name,
+            avatar: avatarId,
+            team: assignedTeam.name,
+            teamId: assignedTeam.id,
+            teamColor: assignedTeam.color,
+            score: 0,
+            scoreBreakdown: { shopping: 0, quiz: 0, cooking: 0, plating: 0 },
+            budgetRemaining: 150,
+            status: 'Ready in Lobby'
+        };
+        this.roomCode = roomCode;
+
+        // 1. Write player to Firebase Realtime Database (Primary cross-device sync)
+        if (window.firebaseSync) {
+            this.firebaseController = window.firebaseSync.joinPlayerRoom(roomCode, this.player, {
+                onStageChange: (newStage) => {
+                    console.log('🔥 [Player Firebase] Stage changed to:', newStage);
+                    if (newStage && newStage !== this.currentStage && newStage !== 'LOBBY') {
+                        this.syncStage(newStage);
+                    }
+                },
+                onBroadcast: (message) => {
+                    this.showNotification(`📢 Teacher: ${message}`, 'info');
                 }
             });
-        } else {
-            // Local fallback practice
-            this.setupLocalPlayer(name, avatarId, roomCode);
         }
-    }
 
-    setupLocalPlayer(name, avatarId, roomCode) {
-        const teamIds = ['team-alpha', 'team-bravo', 'team-charlie', 'team-delta'];
-        const randomTeam = teamIds[Math.floor(Math.random() * teamIds.length)];
-        this.player = {
-            id: 'local_player',
-            name: name || 'Master Chef',
-            avatar: avatarId,
-            teamId: randomTeam,
-            score: 0,
-            budgetRemaining: 150
-        };
-        this.roomCode = roomCode || 'SOLO';
+        // 2. Also emit to Socket.io if connected (hybrid fallback)
+        if (this.socket && this.socket.connected) {
+            this.socket.emit('join_room', {
+                pin: roomCode,
+                roomCode: roomCode,
+                id: playerId,
+                name: name,
+                teamName: assignedTeam.name,
+                teamId: assignedTeam.id,
+                avatar: avatarId
+            });
+        }
+
+        // Show player waiting lobby
         this.showScreen('lobbyScreen');
         this.updateLobbyUI();
         window.sound.playSuccess();
+        this.showNotification(`👨‍🍳 Welcome Chef ${name}! Waiting for host to start the challenge...`, 'success');
+    }
+
+    setupLocalPlayer(name, avatarId, roomCode) {
+        this.joinLobby();
     }
 
     updateLobbyUI() {
@@ -476,7 +508,12 @@ class TungTungApp {
             else status = 'Ready in Lobby';
         }
 
-        // Real-time synchronization with server & Host screen
+        // Real-time synchronization with Firebase Realtime Database
+        if (this.firebaseController) {
+            this.firebaseController.updateScore(this.liveScore, this.scoreBreakdown);
+        }
+
+        // Real-time synchronization with server & Host screen via Socket
         if (this.socket && this.socket.connected) {
             this.socket.emit('player_update_progress', {
                 status,
@@ -1404,6 +1441,14 @@ class TungTungApp {
             timeSpent,
             quizScore: this.quizScore
         };
+
+        // Submit to Firebase Realtime Database
+        if (this.firebaseController) {
+            this.firebaseController.submitDish({
+                ...dishData,
+                score: this.liveScore
+            });
+        }
 
         if (this.socket && this.socket.connected) {
             this.socket.emit('player_submit_dish', dishData, (res) => {

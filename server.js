@@ -46,13 +46,13 @@ const TEAMS = [
 ];
 
 /**
- * Generate a unique 4-digit numeric PIN (1000 - 9999)
+ * Generate a unique 6-digit numeric PIN (100000 - 999999)
  */
 function generatePin() {
     let pin;
     let attempts = 0;
     do {
-        pin = Math.floor(1000 + Math.random() * 9000).toString();
+        pin = Math.floor(100000 + Math.random() * 900000).toString();
         attempts++;
     } while (rooms[pin] && attempts < 1000);
     return pin;

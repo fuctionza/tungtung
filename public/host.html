@@ -4,14 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TungTung Restaurant - Host Dashboard & Projector Control</title>
-    <meta name="description" content="TungTung Restaurant Host Dashboard - Real-Time Kahoot/Blooket style classroom projector screen with PIN, QR code, live student roster, and scoreboards.">
+    <meta name="description" content="TungTung Restaurant Host Dashboard - Real-Time Kahoot/Blooket style classroom projector screen with 6-digit PIN, dynamic QR code, live student roster, and scoreboards.">
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Font Awesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- QRCode JS CDN for dynamic QR Code generation -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <!-- Socket.IO Client -->
+    <!-- Firebase SDK (Compat) for Real-Time Multi-Device Classroom Sync -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    <script src="/js/firebaseSync.js"></script>
+    <!-- Socket.IO Client (Hybrid Fallback) -->
     <script src="/socket.io/socket.io.js"></script>
     <!-- Custom Styles -->
     <link rel="stylesheet" href="/css/style.css">
@@ -45,8 +49,8 @@
             box-shadow: 0 12px 40px rgba(0,0,0,0.4), 0 0 0 4px rgba(99,102,241,0.5);
         }
         .pin-mega-display {
-            font-size: 4.5rem;
-            letter-spacing: 0.35em;
+            font-size: 4rem;
+            letter-spacing: 0.25em;
             line-height: 1;
             text-shadow: 0 4px 20px rgba(245,158,11,0.4);
         }
@@ -101,19 +105,19 @@
         <!-- Prominent Ultra-Large Room PIN & Fast Controls -->
         <div class="flex flex-wrap items-center gap-3">
             <!-- ULTRA-LARGE ROOM PIN DISPLAY -->
-            <div class="px-6 py-2 rounded-2xl bg-slate-900/95 border-2 border-amber-400 text-center shadow-2xl min-w-[170px] animate-pop">
+            <div class="px-6 py-2 rounded-2xl bg-slate-900/95 border-2 border-amber-400 text-center shadow-2xl min-w-[190px] animate-pop">
                 <div class="text-[10px] text-amber-300 uppercase font-bold tracking-widest mb-0.5">ROOM PIN</div>
-                <h1 id="game-pin" class="text-4xl font-extrabold font-fun text-amber-400 tracking-widest leading-none py-1">----</h1>
-                <span id="pin-display" class="hidden">----</span>
-                <div id="room-pin-display" class="hidden">----</div>
-                <div id="hostRoomPin" class="hidden">----</div>
+                <h1 id="game-pin" class="text-3xl sm:text-4xl font-extrabold font-fun text-amber-400 tracking-wider leading-none py-1">------</h1>
+                <span id="pin-display" class="hidden">------</span>
+                <div id="room-pin-display" class="hidden">------</div>
+                <div id="hostRoomPin" class="hidden">------</div>
             </div>
 
             <!-- Connected Players Count -->
             <div class="px-3.5 py-2 rounded-2xl bg-slate-900/90 border border-slate-700 text-center shadow-inner">
                 <div class="text-[9px] text-slate-400 uppercase font-bold tracking-widest">Chefs</div>
                 <span id="player-count" class="text-base font-bold font-fun text-emerald-400">0</span>
-                <span id="hostTotalPlayers" class="hidden">0</span>
+                <span id="hostTotalPlayers" class="hidden">0 Chefs</span>
             </div>
 
             <!-- Stage Timer -->
@@ -133,6 +137,12 @@
                 <i class="fas fa-utensils"></i>
                 <span>Open Player View</span>
             </a>
+
+            <!-- Fullscreen QR Zoom Button -->
+            <button onclick="document.getElementById('qrCodeModal').classList.remove('hidden')" class="px-3 py-2.5 rounded-2xl bg-indigo-600/40 hover:bg-indigo-600 text-indigo-200 hover:text-white font-bold text-xs border border-indigo-500/40 btn-bounce flex items-center space-x-1.5 transition-all" title="Zoom QR Code for Projector">
+                <i class="fas fa-qrcode"></i>
+                <span>Zoom QR</span>
+            </button>
 
             <!-- Audio / BGM Toggle -->
             <button id="hostMuteBtn" class="w-10 h-10 rounded-xl glass-panel flex items-center justify-center text-slate-300 hover:text-white transition-colors" title="Toggle Sound / BGM">
@@ -199,14 +209,14 @@
                     <div id="hostQrCodeCanvas" class="qr-code-container waiting flex items-center justify-center" style="min-width:200px;min-height:200px;">
                         <!-- QR Code rendered here dynamically -->
                     </div>
-                    <p class="text-[11px] text-slate-400 text-center max-w-[220px]">Students: point your phone camera at this QR code to join instantly</p>
+                    <p class="text-[11px] text-slate-400 text-center max-w-[220px]">Students: point phone camera at this QR code to join instantly</p>
                 </div>
 
                 <!-- Room PIN + Join Info -->
                 <div class="flex flex-col items-center lg:items-start space-y-4 text-center lg:text-left">
                     <div>
                         <div class="text-sm text-slate-400 font-bold uppercase tracking-widest mb-1">📱 Scan QR or Enter PIN</div>
-                        <div id="heroPinDisplay" class="pin-mega-display font-extrabold font-fun text-amber-400">----</div>
+                        <div id="heroPinDisplay" class="pin-mega-display font-extrabold font-fun text-amber-400">------</div>
                     </div>
 
                     <div class="join-url-badge px-4 py-2.5 rounded-xl text-center lg:text-left">
@@ -216,16 +226,16 @@
 
                     <div class="flex flex-wrap gap-2 mt-1">
                         <div class="px-3 py-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-[11px] font-bold flex items-center space-x-1.5">
-                            <i class="fas fa-wifi"></i>
-                            <span>Works on any network</span>
+                            <i class="fas fa-bolt"></i>
+                            <span>Instant Firebase Sync</span>
                         </div>
                         <div class="px-3 py-1.5 rounded-lg bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 text-[11px] font-bold flex items-center space-x-1.5">
                             <i class="fas fa-mobile-alt"></i>
-                            <span>Mobile optimized</span>
+                            <span>Cellular & Wi-Fi Ready</span>
                         </div>
                     </div>
 
-                    <p class="text-xs text-slate-500 max-w-sm">Students join from <strong class="text-slate-300">any device & any WiFi/mobile network</strong>. The QR code links directly to the player onboarding page.</p>
+                    <p class="text-xs text-slate-500 max-w-sm">Students join from <strong class="text-slate-300">any device & network</strong>. Scanning redirects directly to name and avatar selection.</p>
                 </div>
             </div>
         </div>
@@ -285,7 +295,7 @@
             </div>
 
             <div class="text-sm font-bold font-fun text-amber-400">
-                PIN: <span id="modalPinDisplay" class="text-4xl tracking-widest">----</span>
+                PIN: <span id="modalPinDisplay" class="text-4xl tracking-widest">------</span>
             </div>
 
             <div class="text-xs text-slate-400 bg-slate-900/80 p-3 rounded-xl border border-slate-700">
@@ -305,18 +315,13 @@
     <script src="/js/state.js"></script>
     <script src="/js/grammarEngine.js"></script>
     <script>
-        const socket = io(window.location.origin, {
-            transports: ['websocket', 'polling'],
-            reconnection: true,
-            reconnectionAttempts: Infinity,
-            reconnectionDelay: 1000,
-            reconnectionDelayMax: 5000,
-            timeout: 20000
-        });
-        window.socket = socket;
+        // Generate unique 6-digit Room PIN immediately on Host page load
+        const initialRoomPin = Math.floor(100000 + Math.random() * 900000).toString();
+        window.initialRoomPin = initialRoomPin;
 
         function updatePinDisplay(pin) {
             if (!pin) return;
+            window.activeRoomPin = pin;
             ['game-pin', 'pin-display', 'room-pin-display', 'hostRoomPin', 'heroPinDisplay', 'modalPinDisplay'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.innerText = pin;
@@ -327,71 +332,8 @@
             }
         }
 
-        socket.on('connect', () => {
-            console.log('Host connected to server:', socket.id);
-            socket.emit('create_room');
-        });
-
-        socket.on('room_created', (data) => {
-            console.log('Room created with PIN:', data.pin);
-            updatePinDisplay(data.pin);
-        });
-
-        socket.on('show_pin', (data) => {
-            console.log('Server sent show_pin:', data.pin);
-            updatePinDisplay(data.pin);
-        });
-
-        socket.on('update_host_lobby', (players) => {
-            console.log('HOST RECEIVED PLAYERS:', players);
-            const container = document.getElementById('player-list');
-            const countEl = document.getElementById('player-count');
-            const hostTotal = document.getElementById('hostTotalPlayers');
-            
-            if (container) {
-                const playerList = Array.isArray(players) ? players : Object.values(players || {});
-                container.innerHTML = playerList.map(p => `
-                    <div class="p-4 bg-white text-slate-800 rounded-2xl shadow-lg border-2 border-indigo-500 text-center font-bold animate-pop">
-                        <div class="text-3xl mb-1">${(p.avatar === 'cat' ? '🐱' : (p.avatar === 'bear' ? '🐻' : (p.avatar === 'fox' ? '🦊' : (p.avatar === 'dog' ? '🐶' : (p.avatar === 'rabbit' ? '🐰' : '🐼')))))}</div>
-                        <div class="text-slate-900 font-fun text-base">${p.name || 'Anonymous'}</div>
-                        <span class="inline-block mt-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-700">${p.team || p.teamName || 'Team Alpha'}</span>
-                    </div>
-                `).join('');
-
-                if (countEl) countEl.innerText = playerList.length;
-                if (hostTotal) hostTotal.innerText = `${playerList.length} Chefs`;
-
-                // Update start game button state
-                const startBtn = document.getElementById('hostStartGameBtn');
-                if (startBtn) {
-                    if (playerList.length >= 1) {
-                        startBtn.classList.remove('opacity-60');
-                        startBtn.classList.add('animate-pulse', 'ring-2', 'ring-emerald-400');
-                        startBtn.innerHTML = `<i class="fas fa-play"></i><span>Start Game (${playerList.length} Ready)</span>`;
-                    } else {
-                        startBtn.classList.remove('ring-2', 'ring-emerald-400', 'animate-pulse');
-                        startBtn.classList.add('opacity-60');
-                        startBtn.innerHTML = `<i class="fas fa-play"></i><span>Start Game (Waiting for Players...)</span>`;
-                    }
-                }
-
-                // Collapse QR hero section once players join (but keep it accessible)
-                const qrHero = document.getElementById('qrHeroSection');
-                if (qrHero && playerList.length >= 1) {
-                    qrHero.querySelector('.qr-code-container')?.classList.remove('waiting');
-                }
-            }
-
-            if (window.hostDashboard) {
-                if (!window.hostDashboard.room) {
-                    window.hostDashboard.room = { code: window.hostDashboard.roomCode, players: players };
-                } else {
-                    window.hostDashboard.room.players = players;
-                    window.hostDashboard.room.totalPlayers = (Array.isArray(players) ? players.length : Object.keys(players || {}).length);
-                }
-                window.hostDashboard.renderHostUI();
-            }
-        });
+        // Render immediately
+        updatePinDisplay(initialRoomPin);
     </script>
     <script src="/js/host.js"></script>
 </body>
